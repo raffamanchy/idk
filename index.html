@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FPV LOGIC - NEON BANDO</title>
+    <!-- Local offline icon reference -->
+    <link rel="icon" type="image/png" href="logic.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #06080d; font-family: 'Courier New', Courier, monospace; position: fixed; }
+        
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; overflow: hidden; }
+        canvas { width: 100% !important; height: 100% !important; display: block; }
+        
+        /* RETRO BETAFLIGHT / DJI OSD OVERLAY (PIXELATED) */
+        #betaflight-osd {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000;
+            image-rendering: pixelated;
+        }
+
+        /* Top Left */
+        .osd-top-left { position: absolute; top: 25px; left: 35px; display: flex; flex-direction: column; gap: 4px; }
+        
+        /* Top Center */
+        .osd-top-center { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); }
+
+        /* Top Right */
+        .osd-top-right { position: absolute; top: 25px; right: 35px; text-align: right; }
+
+        /* Center Pitch / Crosshair Overlay */
+        .osd-center-hud {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
+            height: 220px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .osd-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .osd-horizon-ticks {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+            letter-spacing: 6px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .osd-ladder {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        /* Bottom Row Indicators */
+        .osd-bottom-left { position: absolute; bottom: 35px; left: 35px; display: flex; flex-direction: column; gap: 12px; }
+        .osd-bottom-center { position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); display: flex; gap: 30px; align-items: center; }
+        .osd-bottom-right { position: absolute; bottom: 35px; right: 35px; display: flex; flex-direction: column; gap: 12px; text-align: right; }
+
+        /* RC STICKS OVERLAY (PRESERVED EXACTLY AS ORIGINAL) */
+        #rc-sticks-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 12;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .stick-box-wrapper {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            pointer-events: auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+        }
+
+        .stick-box {
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            border: 4px solid #b5b5b5;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+        }
+
+        .stick-cross-h { 
+            position: absolute; top: 50%; left: 0; width: 100%; height: 3px; 
+            background: #8c8c8c; transform: translateY(-50%); z-index: 1;
+        }
+        .stick-cross-v { 
+            position: absolute; top: 0; left: 50%; width: 3px; height: 100%; 
+            background: #8c8c8c; transform: translateX(-50%); z-index: 1;
+        }
+
+        .stick-ball {
+            position: absolute; 
+            width: 16px; 
+            height: 16px; 
+            background: #00ff00; 
+            border: 2px solid #ffffff;
+            border-radius: 50px;
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 4px rgba(0, 255, 0, 0.9); 
+            z-index: 4;
+            image-rendering: pixelated;
+            will-change: transform;
+        }
+
+        .hud-circle-btn {
+            width: 44px;
+            height: 44px;
+            background: rgba(20, 25, 35, 0.85);
+            color: #ffffff;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        .hud-circle-btn:hover { background: rgba(40, 50, 70, 0.95); }
+
+        #touch-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 9; pointer-events: none; display: none; }
+        .touch-pad {
+            position: absolute; bottom: max(45px, env(safe-area-inset-bottom)); width: 150px; height: 150px;
+            background: rgba(255, 255, 255, 0.05); border: none;
+            border-radius: 50%; pointer-events: auto; touch-action: none;
+            opacity: 0.4;
+        }
+        #touch-left-pad { left: max(55px, env(safe-area-inset-left)); }
+        #touch-right-pad { right: max(55px, env(safe-area-inset-right)); }
+        .touch-knob {
+            position: absolute; top: 50%; left: 50%; width: 55px; height: 55px;
+            background: rgba(255, 255, 255, 0.5); border: none; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        #top-action-bar {
+            position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(15px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; z-index: 18; pointer-events: auto;
+        }
+        .top-btn {
+            background: rgba(20, 25, 35, 0.85); color: #ffffff; border: 1.5px solid rgba(255, 255, 255, 0.2);
+            padding: 0 10px; height: 36px; border-radius: 6px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            font-size: 12px; font-weight: bold; font-family: consolas, sans-serif;
+        }
+
+        #top-menu-bar { 
+            position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 10px; z-index: 18; pointer-events: auto; 
+            color: #ffffff; font-weight: bold; font-size: 14px;
+        }
+
+        /* MENU SCREEN OVERLAY */
+        #instructions { 
+            position: absolute; width: 100%; height: 100%; background: #050508;
+            color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; 
+            transition: opacity 0.5s ease;
+        }
+        #menu-content { 
+            display: flex; flex-direction: column; align-items: center; gap: 25px; max-width: 90%;
+        }
+        .game-logo {
+            font-size: 38px;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: 3px;
+            color: #00ffcc;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+            border-bottom: 4px solid #00ffcc;
+            padding-bottom: 8px;
+        }
+        .card-container { display: flex; gap: 20px; }
+        .game-card {
+            width: 170px;
+            height: 110px;
+            background: linear-gradient(135deg, #121520, #08090e);
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(0,255,204,0.3);
+        }
+        
+        #loading-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000;
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;
+            padding: 40px; z-index: 25; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .loading-text {
+            color: #00ffcc; font-size: 20px; font-family: monospace; letter-spacing: 2px;
+            animation: blinkLoading 1s infinite alternate;
+        }
+        @keyframes blinkLoading { 0% { opacity: 0.3; } 100% { opacity: 1.0; } }
+    </style>
+    <script src="main.three.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <!-- RETRO BETAFLIGHT / DJI OSD OVERLAY (PIXELATED PILOT NAME) -->
+        <div id="betaflight-osd">
+            <div class="osd-top-left">
+                <div id="osd-mode-text">ACRO</div>
+                <div>3 6</div>
+            </div>
+
+            <div class="osd-top-center">
+                <span>NDK_FPV</span>
+            </div>
+
+            <div class="osd-top-right">
+                <div id="osd-timer">00:06</div>
+            </div>
+
+            <!-- Center Artificial Horizon & Pitch Ladders -->
+            <div class="osd-center-hud">
+                <div class="osd-ladder">
+                    <div>-</div><div>-</div><div>-</div><div>&gt;</div><div>-</div><div>-</div><div>-</div>
+                </div>
+                
+                <div class="osd-crosshair">┘ ┐ └</div>
+                <div class="osd-horizon-ticks">. . . . . . . .</div>
+
+                <div class="osd-ladder" style="text-align: right;">
+                    <div>-</div><div>-</div><div>-</div><div>&lt;</div><div>-</div><div>-</div><div>-</div>
+                </div>
+            </div>
+
+            <div class="osd-bottom-left">
+                <div>ALT <span id="osd-alt">3.5</span>m</div>
+                <div>🔋 <span id="osd-voltage">16.7</span>v</div>
+            </div>
+
+            <div class="osd-bottom-center">
+                <div>⇩</div>
+                <div>(H) <span id="osd-home-dist">46</span>m</div>
+                <div><span id="osd-travelled">74.1</span>m</div>
+            </div>
+
+            <div class="osd-bottom-right">
+                <div><span id="osd-speed">122</span> km/h</div>
+                <div><span id="osd-mah">76</span> mAh</div>
+            </div>
+        </div>
+
+        <div id="top-menu-bar">FPV LOGIC - NEON BANDO</div>
+
+        <div id="top-action-bar">
+            <button class="top-btn" id="btn-switch-view" title="Switch View">&#127916;</button>
+            <button class="top-btn" id="btn-retry" title="Reset">&#8634;</button>
+            <button class="top-btn" id="btn-pause" title="Pause">&#10074;&#10074;</button>
+        </div>
+
+        <!-- Retro Pixelated RC Stick Containers (Preserved Original) -->
+        <div id="rc-sticks-container">
+            <button id="btn-motor-toggle" class="hud-circle-btn" title="Toggle Motor">&#10074;&#10074;</button>
+            
+            <div class="stick-box-wrapper" id="wrapper-left">
+                <div class="stick-box" id="box-left">
+                    <div class="stick-cross-h"></div>
+                    <div class="stick-cross-v"></div>
+                    <div id="stick-left" class="stick-ball"></div>
+                </div>
+            </div>
+
+            <div class="stick-box-wrapper" id="wrapper-right">
+                <div class="stick-box" id="box-right">
+                    <div class="stick-cross-h"></div>
+                    <div class="stick-cross-v"></div>
+                    <div id="stick-right" class="stick-ball"></div>
+                </div>
+            </div>
+
+            <button id="btn-fullscreen-toggle" class="hud-circle-btn" title="Lock/Fullscreen">&#128274;</button>
+        </div>
+
+        <div id="touch-controls">
+            <div id="touch-left-pad" class="touch-pad"><div id="touch-left-knob" class="touch-knob"></div></div>
+            <div id="touch-right-pad" class="touch-pad"><div id="touch-right-knob" class="touch-knob"></div></div>
+        </div>
+
+        <!-- Main Home Menu Screen -->
+        <div id="instructions">
+            <div id="menu-content">
+                <div class="game-logo">NEON BANDO</div>
+                <div class="card-container">
+                    <div class="game-card" id="btn-start-game">
+                        <span>FREEFLIGHT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Black Loading Screen -->
+        <div id="loading-screen">
+            <div class="loading-text" id="loading-txt">LOADING MAP: NEON BANDO... 🚁</div>
+        </div>
+    </div>
+
+    <script>
+        // --- AUDIO SYSTEM SETUP ---
+        let audioCtx = null, motorOsc = null, motorGain = null, windNode = null, windGain = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            motorOsc = audioCtx.createOscillator();
+            motorOsc.type = 'sawtooth';
+            motorOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+            motorGain = audioCtx.createGain();
+            motorGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            motorOsc.connect(motorGain);
+            motorGain.connect(audioCtx.destination);
+            motorOsc.start();
+
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+            windNode = audioCtx.createBufferSource();
+            windNode.buffer = noiseBuffer;
+            windNode.loop = true;
+
+            const windFilter = audioCtx.createBiquadFilter();
+            windFilter.type = 'bandpass';
+            windFilter.frequency.setValueAtTime(400, audioCtx.currentTime);
+            windFilter.Q.setValueAtTime(1.0, audioCtx.currentTime);
+
+            windGain = audioCtx.createGain();
+            windGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            windNode.connect(windFilter);
+            windFilter.connect(windGain);
+            windGain.connect(audioCtx.destination);
+            windNode.start();
+        }
+
+        function playCrashSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.3);
+
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function updateAudio(throttle, speed) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const targetFreq = 80 + throttle * 450;
+            const targetMotorGain = isArmed ? (0.05 + throttle * 0.15) : 0;
+            motorOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+            motorGain.gain.setTargetAtTime(targetMotorGain, audioCtx.currentTime, 0.05);
+
+            const targetWindGain = Math.min(0.25, (speed / 60) * 0.25);
+            windGain.gain.setTargetAtTime(targetWindGain, audioCtx.currentTime, 0.1);
+        }
+
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const stickScale = isMobile ? 1.0 : 1.2; 
+        document.getElementById('wrapper-left').style.width = (96 * stickScale) + 'px';
+        document.getElementById('wrapper-left').style.height = (96 * stickScale) + 'px';
+        document.getElementById('wrapper-right').style.width = (96 * stickScale) + 'px';
+        document.getElementById('wrapper-right').style.height = (96 * stickScale) + 'px';
+
+        const stickBallSize = 16 * stickScale;
+        document.getElementById('stick-left').style.width = stickBallSize + 'px';
+        document.getElementById('stick-left').style.height = stickBallSize + 'px';
+        document.getElementById('stick-right').style.width = stickBallSize + 'px';
+        document.getElementById('stick-right').style.height = stickBallSize + 'px';
+
+        if (isMobile) {
+            document.getElementById('touch-controls').style.display = 'block';
+        } else {
+            document.getElementById('btn-motor-toggle').style.display = 'none';
+            document.getElementById('btn-fullscreen-toggle').style.display = 'none';
+        }
+
+        const container = document.getElementById('canvas-container');
+        const inst = document.getElementById('instructions');
+        const loadingScreen = document.getElementById('loading-screen');
+        
+        // --- THREE.JS SCENE SETUP (NEON BANDO ENVIRONMENT) ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06080d);
+        scene.fog = new THREE.FogExp2(0x0a0d14, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(125, window.innerWidth / window.innerHeight, 0.1, 3000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+        container.appendChild(renderer.domElement);
+
+        function handleResize() {
+            const width = window.innerWidth || document.documentElement.clientWidth;
+            const height = window.innerHeight || document.documentElement.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height, true);
+        }
+        window.addEventListener('resize', handleResize);
+
+        scene.add(new THREE.AmbientLight(0x223344, 0.6));
+        const blueLight = new THREE.DirectionalLight(0x00aaff, 0.5);
+        blueLight.position.set(100, 300, 100);
+        scene.add(blueLight);
+
+        // Ground Concrete Floor
+        const floorGeo = new THREE.PlaneGeometry(3000, 3000);
+        floorGeo.rotateX(-Math.PI / 2);
+        const floorMat = new THREE.MeshBasicMaterial({ color: 0x12141a });
+        scene.add(new THREE.Mesh(floorGeo, floorMat));
+
+        // BUILD NEON BANDO STRUCTURES & GATES
+        const bandoConcreteMat = new THREE.MeshBasicMaterial({ color: 0x1c202a });
+        const cyanNeonMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const purpleNeonMat = new THREE.MeshBasicMaterial({ color: 0xcc00ff });
+
+        const obstacles = [];
+
+        for(let z = -200; z <= 200; z += 40) {
+            for(let x = -80; x <= 80; x += 160) {
+                const pillar = new THREE.Mesh(new THREE.BoxGeometry(10, 80, 10), bandoConcreteMat);
+                pillar.position.set(x, 40, z);
+                scene.add(pillar);
+                obstacles.push({ minX: x-5, maxX: x+5, minZ: z-5, maxZ: z+5, minY: 0, maxY: 80 });
+
+                const strip = new THREE.Mesh(new THREE.BoxGeometry(0.5, 80, 0.5), cyanNeonMat);
+                strip.position.set(x + (x > 0 ? -5.1 : 5.1), 40, z);
+                scene.add(strip);
+            }
+
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(170, 4, 4), bandoConcreteMat);
+            beam.position.set(0, 78, z);
+            scene.add(beam);
+        }
+
+        function createNeonGate(x, y, z, colorMat) {
+            const gateGroup = new THREE.Group();
+            const gateFrame = new THREE.Mesh(new THREE.BoxGeometry(14, 14, 0.8), colorMat);
+            gateGroup.add(gateFrame);
+            gateGroup.position.set(x, y, z);
+            scene.add(gateGroup);
+        }
+
+        for(let i = -150; i <= 150; i += 50) {
+            createNeonGate(0, 15, i, cyanNeonMat);
+            createNeonGate(i * 0.5, 25, i, purpleNeonMat);
+        }
+
+        // --- DRONE MODEL ---
+        const droneGroup = new THREE.Group();
+        const bodyMat = new THREE.MeshBasicMaterial({ color: 0x111317 });
+        droneGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.35, 1.6), bodyMat));
+        scene.add(droneGroup);
+
+        const drone = {
+            position: new THREE.Vector3(0, 1.5, 100), 
+            velocity: new THREE.Vector3(0, 0, 0),
+            rotation: new THREE.Quaternion(),
+            euler: new THREE.Euler(0, 0, 0, 'YXZ')
+        };
+
+        const MODES = {
+            1: { name: "ANGLE", maxThrust: 16.0, drag: 0.030, hasAutoLevel: true, maxAngle: 0.6 },
+            2: { name: "HORIZON", maxThrust: 20.0, drag: 0.020, hasAutoLevel: true, maxAngle: 0.9 },
+            3: { name: "ACRO", maxThrust: 26.0, drag: 0.009, hasAutoLevel: false }
+        };
+        let activeMode = 3;
+        let cameraMode = "FPV";
+        let isArmed = false;
+        let gameStarted = false;
+        let flightTimeSec = 6;
+        let totalDistance = 74.1;
+        let mahConsumed = 76;
+
+        let keys = { w: false, s: false, a: false, d: false, i: false, j: false, k: false, l: false };
+        let mousePitch = 0, mouseRoll = 0, rawMouseX = 0, rawMouseY = 0;
+        let touchLeftValX = 0, touchLeftValY = 1.0, touchRightValX = 0, touchRightValY = 0;
+        let stickyThrottleValue = 0.0; 
+
+        const MOUSE_SENSITIVITY = 0.0025; 
+        const THROTTLE_CHANGE_SPEED = 0.8; 
+        const YAW_RATE = 3.5;
+        const GRAVITY = 9.81;
+        const CAMERA_UPTILT = 30 * (Math.PI / 180);
+        let currentThrottle = 0;
+
+        function toggleMotors() {
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            isArmed = !isArmed;
+            if(!isArmed) { currentThrottle = 0; stickyThrottleValue = 0; }
+        }
+
+        document.getElementById('btn-motor-toggle').addEventListener('click', (e) => { e.stopPropagation(); toggleMotors(); });
+
+        function startGameSession() {
+            if (gameStarted) return;
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+            loadingScreen.style.opacity = '1';
+            setTimeout(() => {
+                gameStarted = true;
+                inst.style.display = 'none';
+                setTimeout(() => { loadingScreen.style.opacity = '0'; }, 400);
+                if (!isMobile) container.requestPointerLock();
+            }, 1000);
+        }
+
+        document.getElementById('btn-start-game').addEventListener('click', startGameSession);
+
+        document.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (!gameStarted) return;
+            if (k === 'm') { toggleMotors(); return; }
+            if (k in keys) keys[k] = true;
+            if (k === 'r') resetDrone();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k in keys) keys[k] = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!gameStarted || isMobile || document.pointerLockElement !== container) return;
+            mousePitch = -e.movementY * MOUSE_SENSITIVITY;
+            mouseRoll = e.movementX * MOUSE_SENSITIVITY;
+            rawMouseX += e.movementX * 0.4;
+            rawMouseY += e.movementY * 0.4;
+        });
+
+        document.addEventListener('wheel', (e) => {
+            if (!gameStarted || isMobile) return;
+            e.preventDefault();
+            const step = 0.05;
+            stickyThrottleValue = e.deltaY < 0 ? Math.min(1.0, stickyThrottleValue + step) : Math.max(0.0, stickyThrottleValue - step);
+            currentThrottle = stickyThrottleValue;
+        }, { passive: false });
+
+        document.getElementById('btn-switch-view').addEventListener('click', (e) => { e.stopPropagation(); cameraMode = (cameraMode === "FPV") ? "TPV" : "FPV"; });
+        document.getElementById('btn-retry').addEventListener('click', (e) => { e.stopPropagation(); resetDrone(); });
+
+        function resetDrone() {
+            drone.position.set(0, 1.5, 100); drone.velocity.set(0, 0, 0); drone.rotation.set(0, 0, 0, 1); drone.euler.set(0, 0, 0);
+            currentThrottle = 0; stickyThrottleValue = 0;
+        }
+
+        setInterval(() => {
+            if(gameStarted && isArmed) {
+                flightTimeSec++;
+                const mins = String(Math.floor(flightTimeSec / 60)).padStart(2, '0');
+                const secs = String(flightTimeSec % 60).padStart(2, '0');
+                document.getElementById('osd-timer').innerText = `${mins}:${secs}`;
+                mahConsumed += Math.floor(currentThrottle * 3);
+                document.getElementById('osd-mah').innerText = mahConsumed;
+            }
+        }, 1000);
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            let dt = clock.getDelta(); if (dt > 0.1) dt = 0.1;
+            const modeCfg = MODES[activeMode];
+
+            if (!gameStarted) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            if (isArmed) {
+                if (keys.w) stickyThrottleValue = Math.min(1.0, stickyThrottleValue + THROTTLE_CHANGE_SPEED * dt);
+                if (keys.s) stickyThrottleValue = Math.max(0.0, stickyThrottleValue - THROTTLE_CHANGE_SPEED * dt);
+                currentThrottle = stickyThrottleValue;
+            } else {
+                currentThrottle = 0;
+            }
+
+            if (document.pointerLockElement === container) {
+                let inputYaw = 0;
+                if (keys.a) inputYaw = -YAW_RATE * dt;
+                if (keys.d) inputYaw = YAW_RATE * dt;
+                drone.euler.y -= inputYaw;
+
+                const deltaRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-mousePitch * 30.0 * dt, -inputYaw, -mouseRoll * 30.0 * dt, 'YXZ'));
+                drone.rotation.multiply(deltaRotation).normalize();
+            }
+
+            const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(drone.rotation);
+            const accel = new THREE.Vector3().addVectors(localUp.multiplyScalar(currentThrottle * modeCfg.maxThrust), new THREE.Vector3(0, -GRAVITY, 0));
+            drone.velocity.addScaledVector(drone.velocity, -modeCfg.drag);
+            drone.velocity.addScaledVector(accel, dt);
+            drone.position.addScaledVector(drone.velocity, dt);
+
+            if (drone.position.y <= 0.3) {
+                drone.position.y = 0.3; drone.velocity.y = 0;
+            }
+
+            droneGroup.position.copy(drone.position);
+            droneGroup.quaternion.copy(drone.rotation);
+
+            updateAudio(currentThrottle, drone.velocity.length());
+
+            if (cameraMode === "FPV") {
+                camera.position.copy(drone.position);
+                const camRot = drone.rotation.clone();
+                camRot.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CAMERA_UPTILT));
+                camera.quaternion.copy(camRot);
+            } else {
+                const backOffset = new THREE.Vector3(0, 2.5, 7.5).applyQuaternion(drone.rotation);
+                camera.position.copy(drone.position).add(backOffset);
+                camera.lookAt(drone.position);
+            }
+
+            mousePitch = 0; mouseRoll = 0;
+
+            const speedKmh = (drone.velocity.length() * 3.6).toFixed(0);
+            document.getElementById('osd-speed').innerText = speedKmh;
+            document.getElementById('osd-alt').innerText = drone.position.y.toFixed(1);
+            
+            const homeDist = Math.hypot(drone.position.x, drone.position.z).toFixed(0);
+            document.getElementById('osd-home-dist').innerText = homeDist;
+
+            totalDistance += (drone.velocity.length() * dt);
+            document.getElementById('osd-travelled').innerText = totalDistance.toFixed(1);
+
+            // Stick ball calculations matching original exactly
+            const stickLeft = document.getElementById('stick-left');
+            const stickRight = document.getElementById('stick-right');
+            const maxPixelOffset = 35 * stickScale;
+
+            const leftY = -(stickyThrottleValue * 2 - 1) * maxPixelOffset; 
+            const leftX = (keys.d ? 1 : (keys.a ? -1 : 0)) * maxPixelOffset;
+            rawMouseX *= Math.exp(-12.0 * dt); rawMouseY *= Math.exp(-12.0 * dt);
+            const rightX = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, rawMouseX * 1.4));
+            const rightY = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, rawMouseY * 1.4));
+
+            const leftDistFromCenter = Math.hypot(leftX, leftY);
+            const rightDistFromCenter = Math.hypot(rightX, rightY);
+            const leftScale = 1 + Math.min(0.9, (leftDistFromCenter / maxPixelOffset) * 0.9);
+            const rightScale = 1 + Math.min(0.9, (rightDistFromCenter / maxPixelOffset) * 0.9);
+
+            stickLeft.style.transform = `translate(calc(-50% + ${leftX}px), calc(-50% + ${leftY}px)) scale(${leftScale})`;
+            stickRight.style.transform = `translate(calc(-50% + ${rightX}px), calc(-50% + ${rightY}px)) scale(${rightScale})`;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
