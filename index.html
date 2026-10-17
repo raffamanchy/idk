@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FPV LOGIC - NEON BANDO</title>
-    <!-- Local offline icon reference -->
     <link rel="icon" type="image/png" href="logic.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
@@ -13,7 +12,7 @@
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; overflow: hidden; }
         canvas { width: 100% !important; height: 100% !important; display: block; }
         
-        /* RETRO BETAFLIGHT / DJI OSD OVERLAY (PIXELATED) */
+        /* RETRO BETAFLIGHT / DJI OSD OVERLAY */
         #betaflight-osd {
             position: absolute;
             top: 0;
@@ -31,16 +30,10 @@
             image-rendering: pixelated;
         }
 
-        /* Top Left */
         .osd-top-left { position: absolute; top: 25px; left: 35px; display: flex; flex-direction: column; gap: 4px; }
-        
-        /* Top Center */
         .osd-top-center { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); }
-
-        /* Top Right */
         .osd-top-right { position: absolute; top: 25px; right: 35px; text-align: right; }
 
-        /* Center Pitch / Crosshair Overlay */
         .osd-center-hud {
             position: absolute;
             top: 50%;
@@ -81,12 +74,11 @@
             opacity: 0.85;
         }
 
-        /* Bottom Row Indicators */
         .osd-bottom-left { position: absolute; bottom: 35px; left: 35px; display: flex; flex-direction: column; gap: 12px; }
         .osd-bottom-center { position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); display: flex; gap: 30px; align-items: center; }
         .osd-bottom-right { position: absolute; bottom: 35px; right: 35px; display: flex; flex-direction: column; gap: 12px; text-align: right; }
 
-        /* RC STICKS OVERLAY (PRESERVED EXACTLY AS ORIGINAL) */
+        /* RC STICKS OVERLAY */
         #rc-sticks-container {
             position: absolute;
             bottom: 20px;
@@ -106,9 +98,6 @@
             height: 96px;
             pointer-events: auto;
             image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-optimize-contrast;
         }
 
         .stick-box {
@@ -143,7 +132,6 @@
             transform: translate(-50%, -50%);
             box-shadow: 0 0 4px rgba(0, 255, 0, 0.9); 
             z-index: 4;
-            image-rendering: pixelated;
             will-change: transform;
         }
 
@@ -161,23 +149,20 @@
             pointer-events: auto;
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
             font-size: 16px;
-            transition: background 0.2s;
         }
-        .hud-circle-btn:hover { background: rgba(40, 50, 70, 0.95); }
 
         #touch-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 9; pointer-events: none; display: none; }
         .touch-pad {
             position: absolute; bottom: max(45px, env(safe-area-inset-bottom)); width: 150px; height: 150px;
             background: rgba(255, 255, 255, 0.05); border: none;
-            border-radius: 50%; pointer-events: auto; touch-action: none;
-            opacity: 0.4;
+            border-radius: 50%; pointer-events: auto; touch-action: none; opacity: 0.4;
         }
         #touch-left-pad { left: max(55px, env(safe-area-inset-left)); }
         #touch-right-pad { right: max(55px, env(safe-area-inset-right)); }
         .touch-knob {
             position: absolute; top: 50%; left: 50%; width: 55px; height: 55px;
             background: rgba(255, 255, 255, 0.5); border: none; border-radius: 50%;
-            transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%); pointer-events: none;
         }
 
         #top-action-bar {
@@ -186,7 +171,7 @@
         .top-btn {
             background: rgba(20, 25, 35, 0.85); color: #ffffff; border: 1.5px solid rgba(255, 255, 255, 0.2);
             padding: 0 10px; height: 36px; border-radius: 6px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
             font-size: 12px; font-weight: bold; font-family: consolas, sans-serif;
         }
 
@@ -195,102 +180,61 @@
             color: #ffffff; font-weight: bold; font-size: 14px;
         }
 
-        /* MENU SCREEN OVERLAY */
         #instructions { 
             position: absolute; width: 100%; height: 100%; background: #050508;
             color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; 
             transition: opacity 0.5s ease;
         }
-        #menu-content { 
-            display: flex; flex-direction: column; align-items: center; gap: 25px; max-width: 90%;
-        }
+        #menu-content { display: flex; flex-direction: column; align-items: center; gap: 25px; max-width: 90%; }
         .game-logo {
-            font-size: 38px;
-            font-weight: 900;
-            font-style: italic;
-            letter-spacing: 3px;
-            color: #00ffcc;
-            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
-            border-bottom: 4px solid #00ffcc;
-            padding-bottom: 8px;
+            font-size: 38px; font-weight: 900; font-style: italic; letter-spacing: 3px;
+            color: #00ffcc; text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+            border-bottom: 4px solid #00ffcc; padding-bottom: 8px;
         }
         .card-container { display: flex; gap: 20px; }
         .game-card {
-            width: 170px;
-            height: 110px;
-            background: linear-gradient(135deg, #121520, #08090e);
-            border: 2px solid #00ffcc;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            letter-spacing: 1px;
-            box-shadow: 0 0 15px rgba(0,255,204,0.3);
+            width: 170px; height: 110px; background: linear-gradient(135deg, #121520, #08090e);
+            border: 2px solid #00ffcc; border-radius: 8px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 14px; letter-spacing: 1px; box-shadow: 0 0 15px rgba(0,255,204,0.3);
         }
         
         #loading-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000000;
-            display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;
             padding: 40px; z-index: 25; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
         }
-        .loading-text {
-            color: #00ffcc; font-size: 20px; font-family: monospace; letter-spacing: 2px;
-            animation: blinkLoading 1s infinite alternate;
-        }
-        @keyframes blinkLoading { 0% { opacity: 0.3; } 100% { opacity: 1.0; } }
+        .loading-text { color: #00ffcc; font-size: 20px; font-family: monospace; letter-spacing: 2px; }
     </style>
-    <!-- Fallback Online CDN for Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
     <div id="canvas-container">
-        <!-- RETRO BETAFLIGHT / DJI OSD OVERLAY (PIXELATED PILOT NAME) -->
         <div id="betaflight-osd">
             <div class="osd-top-left">
                 <div id="osd-mode-text">ACRO</div>
                 <div>3 6</div>
             </div>
+            <div class="osd-top-center"><span>NDK_FPV</span></div>
+            <div class="osd-top-right"><div id="osd-timer">00:06</div></div>
 
-            <div class="osd-top-center">
-                <span>NDK_FPV</span>
-            </div>
-
-            <div class="osd-top-right">
-                <div id="osd-timer">00:06</div>
-            </div>
-
-            <!-- Center Artificial Horizon & Pitch Ladders -->
             <div class="osd-center-hud">
-                <div class="osd-ladder">
-                    <div>-</div><div>-</div><div>-</div><div>&gt;</div><div>-</div><div>-</div><div>-</div>
-                </div>
-                
+                <div class="osd-ladder"><div>-</div><div>-</div><div>-</div><div>&gt;</div><div>-</div><div>-</div><div>-</div></div>
                 <div class="osd-crosshair">┘ ┐ └</div>
                 <div class="osd-horizon-ticks">. . . . . . . .</div>
-
-                <div class="osd-ladder" style="text-align: right;">
-                    <div>-</div><div>-</div><div>-</div><div>&lt;</div><div>-</div><div>-</div><div>-</div>
-                </div>
+                <div class="osd-ladder" style="text-align: right;"><div>-</div><div>-</div><div>-</div><div>&lt;</div><div>-</div><div>-</div><div>-</div></div>
             </div>
 
             <div class="osd-bottom-left">
                 <div>ALT <span id="osd-alt">3.5</span>m</div>
                 <div>🔋 <span id="osd-voltage">16.7</span>v</div>
             </div>
-
             <div class="osd-bottom-center">
                 <div>⇩</div>
                 <div>(H) <span id="osd-home-dist">46</span>m</div>
                 <div><span id="osd-travelled">74.1</span>m</div>
             </div>
-
             <div class="osd-bottom-right">
                 <div><span id="osd-speed">122</span> km/h</div>
                 <div><span id="osd-mah">76</span> mAh</div>
@@ -305,7 +249,6 @@
             <button class="top-btn" id="btn-pause" title="Pause">&#10074;&#10074;</button>
         </div>
 
-        <!-- Retro Pixelated RC Stick Containers (Preserved Original) -->
         <div id="rc-sticks-container">
             <button id="btn-motor-toggle" class="hud-circle-btn" title="Toggle Motor">&#10074;&#10074;</button>
             
@@ -333,26 +276,21 @@
             <div id="touch-right-pad" class="touch-pad"><div id="touch-right-knob" class="touch-knob"></div></div>
         </div>
 
-        <!-- Main Home Menu Screen -->
         <div id="instructions">
             <div id="menu-content">
                 <div class="game-logo">NEON BANDO</div>
                 <div class="card-container">
-                    <div class="game-card" id="btn-start-game">
-                        <span>FREEFLIGHT</span>
-                    </div>
+                    <div class="game-card" id="btn-start-game"><span>FREEFLIGHT</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- Black Loading Screen -->
         <div id="loading-screen">
             <div class="loading-text" id="loading-txt">LOADING MAP: NEON BANDO... 🚁</div>
         </div>
     </div>
 
     <script>
-        // --- AUDIO SYSTEM SETUP ---
         let audioCtx = null, motorOsc = null, motorGain = null, windNode = null, windGain = null;
 
         function initAudio() {
@@ -394,34 +332,6 @@
             windNode.start();
         }
 
-        function playCrashSound() {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.3);
-
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
-        }
-
-        function updateAudio(throttle, speed) {
-            if (!audioCtx || audioCtx.state !== 'running') return;
-            const targetFreq = 80 + throttle * 450;
-            const targetMotorGain = isArmed ? (0.05 + throttle * 0.15) : 0;
-            motorOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
-            motorGain.gain.setTargetAtTime(targetMotorGain, audioCtx.currentTime, 0.05);
-
-            const targetWindGain = Math.min(0.25, (speed / 60) * 0.25);
-            windGain.gain.setTargetAtTime(targetWindGain, audioCtx.currentTime, 0.1);
-        }
-
         const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         const stickScale = isMobile ? 1.0 : 1.2; 
         document.getElementById('wrapper-left').style.width = (96 * stickScale) + 'px';
@@ -446,7 +356,6 @@
         const inst = document.getElementById('instructions');
         const loadingScreen = document.getElementById('loading-screen');
         
-        // --- THREE.JS SCENE SETUP (NEON BANDO ENVIRONMENT) ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x06080d);
         scene.fog = new THREE.FogExp2(0x0a0d14, 0.008);
@@ -472,31 +381,25 @@
         blueLight.position.set(100, 300, 100);
         scene.add(blueLight);
 
-        // Ground Concrete Floor
         const floorGeo = new THREE.PlaneGeometry(3000, 3000);
         floorGeo.rotateX(-Math.PI / 2);
         const floorMat = new THREE.MeshBasicMaterial({ color: 0x12141a });
         scene.add(new THREE.Mesh(floorGeo, floorMat));
 
-        // BUILD NEON BANDO STRUCTURES & GATES
         const bandoConcreteMat = new THREE.MeshBasicMaterial({ color: 0x1c202a });
         const cyanNeonMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         const purpleNeonMat = new THREE.MeshBasicMaterial({ color: 0xcc00ff });
-
-        const obstacles = [];
 
         for(let z = -200; z <= 200; z += 40) {
             for(let x = -80; x <= 80; x += 160) {
                 const pillar = new THREE.Mesh(new THREE.BoxGeometry(10, 80, 10), bandoConcreteMat);
                 pillar.position.set(x, 40, z);
                 scene.add(pillar);
-                obstacles.push({ minX: x-5, maxX: x+5, minZ: z-5, maxZ: z+5, minY: 0, maxY: 80 });
 
                 const strip = new THREE.Mesh(new THREE.BoxGeometry(0.5, 80, 0.5), cyanNeonMat);
                 strip.position.set(x + (x > 0 ? -5.1 : 5.1), 40, z);
                 scene.add(strip);
             }
-
             const beam = new THREE.Mesh(new THREE.BoxGeometry(170, 4, 4), bandoConcreteMat);
             beam.position.set(0, 78, z);
             scene.add(beam);
@@ -515,7 +418,6 @@
             createNeonGate(i * 0.5, 25, i, purpleNeonMat);
         }
 
-        // --- DRONE MODEL ---
         const droneGroup = new THREE.Group();
         const bodyMat = new THREE.MeshBasicMaterial({ color: 0x111317 });
         droneGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.35, 1.6), bodyMat));
@@ -572,7 +474,6 @@
                 gameStarted = true;
                 inst.style.display = 'none';
                 setTimeout(() => { loadingScreen.style.opacity = '0'; }, 400);
-                if (!isMobile) container.requestPointerLock();
             }, 1000);
         }
 
@@ -592,11 +493,13 @@
         });
 
         document.addEventListener('mousemove', (e) => {
-            if (!gameStarted || isMobile || document.pointerLockElement !== container) return;
+            if (!gameStarted || isMobile) return;
             mousePitch = -e.movementY * MOUSE_SENSITIVITY;
             mouseRoll = e.movementX * MOUSE_SENSITIVITY;
-            rawMouseX += e.movementX * 0.4;
-            rawMouseY += e.movementY * 0.4;
+            rawMouseX += e.movementX * 0.5;
+            rawMouseY += e.movementY * 0.5;
+            rawMouseX = Math.max(-35, Math.min(35, rawMouseX));
+            rawMouseY = Math.max(-35, Math.min(35, rawMouseY));
         });
 
         document.addEventListener('wheel', (e) => {
@@ -610,9 +513,76 @@
         document.getElementById('btn-switch-view').addEventListener('click', (e) => { e.stopPropagation(); cameraMode = (cameraMode === "FPV") ? "TPV" : "FPV"; });
         document.getElementById('btn-retry').addEventListener('click', (e) => { e.stopPropagation(); resetDrone(); });
 
+        function setupTouchJoystick(padId, knobId, callback, isStickyY = false) {
+            const pad = document.getElementById(padId);
+            const knob = document.getElementById(knobId);
+            const maxDist = 47.5;
+            let activeTouchId = null;
+
+            pad.addEventListener('touchstart', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                if (activeTouchId === null) {
+                    const touch = e.changedTouches[0];
+                    activeTouchId = touch.identifier;
+                    updateStick(touch);
+                }
+            }, { passive: false });
+
+            pad.addEventListener('touchmove', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === activeTouchId) updateStick(touch);
+                }
+            }, { passive: false });
+
+            function endTouch(e) {
+                e.stopPropagation();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === activeTouchId) {
+                        activeTouchId = null;
+                        if (!isStickyY) {
+                            knob.style.transform = `translate(-50%, -50%)`;
+                            callback(0, 0);
+                        } else {
+                            const currentDy = parseFloat(knob.dataset.dy || 47.5);
+                            knob.style.transform = `translate(-50%, calc(-50% + ${currentDy}px))`;
+                            callback(0, null);
+                        }
+                    }
+                }
+            }
+            pad.addEventListener('touchend', endTouch);
+            pad.addEventListener('touchcancel', endTouch);
+
+            function updateStick(touch) {
+                const rect = pad.getBoundingClientRect();
+                let dx = touch.clientX - (rect.left + rect.width / 2);
+                let dy = touch.clientY - (rect.top + rect.height / 2);
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+                if (isStickyY) knob.dataset.dy = dy;
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                callback(dx / maxDist, dy / maxDist);
+            }
+        }
+
+        if (isMobile) {
+            const leftKnob = document.getElementById('touch-left-knob');
+            if (leftKnob) { leftKnob.style.transform = `translate(-50%, calc(-50% + 47.5px))`; leftKnob.dataset.dy = 47.5; }
+            setupTouchJoystick('touch-left-pad', 'touch-left-knob', (x, y) => { 
+                touchLeftValX = x; 
+                if (y !== null) touchLeftValY = y; 
+            }, true);
+            setupTouchJoystick('touch-right-pad', 'touch-right-knob', (x, y) => { 
+                touchRightValX = x; 
+                touchRightValY = y; 
+            }, false);
+        }
+
         function resetDrone() {
             drone.position.set(0, 1.5, 100); drone.velocity.set(0, 0, 0); drone.rotation.set(0, 0, 0, 1); drone.euler.set(0, 0, 0);
-            currentThrottle = 0; stickyThrottleValue = 0;
+            currentThrottle = 0; stickyThrottleValue = 0; rawMouseX = 0; rawMouseY = 0;
         }
 
         setInterval(() => {
@@ -641,20 +611,32 @@
             if (isArmed) {
                 if (keys.w) stickyThrottleValue = Math.min(1.0, stickyThrottleValue + THROTTLE_CHANGE_SPEED * dt);
                 if (keys.s) stickyThrottleValue = Math.max(0.0, stickyThrottleValue - THROTTLE_CHANGE_SPEED * dt);
-                currentThrottle = stickyThrottleValue;
+                currentThrottle = isMobile ? THREE.MathUtils.clamp((-touchLeftValY + 1) / 2, 0, 1) : stickyThrottleValue;
             } else {
                 currentThrottle = 0;
             }
 
-            if (document.pointerLockElement === container) {
-                let inputYaw = 0;
-                if (keys.a) inputYaw = -YAW_RATE * dt;
-                if (keys.d) inputYaw = YAW_RATE * dt;
-                drone.euler.y -= inputYaw;
+            let inputYaw = 0;
+            if (keys.a) inputYaw = -YAW_RATE * dt;
+            if (keys.d) inputYaw = YAW_RATE * dt;
+            if (isMobile) inputYaw = touchLeftValX * YAW_RATE * dt;
 
-                const deltaRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-mousePitch * 30.0 * dt, -inputYaw, -mouseRoll * 30.0 * dt, 'YXZ'));
-                drone.rotation.multiply(deltaRotation).normalize();
+            drone.euler.y -= inputYaw;
+
+            let targetPitch = mousePitch * 30.0;
+            let targetRoll = -mouseRoll * 30.0;
+            if (isMobile) {
+                targetPitch = touchRightValY * 15.0;
+                targetRoll = -touchRightValX * 15.0;
+            } else {
+                if (keys.i) targetPitch += 15.0;
+                if (keys.k) targetPitch -= 15.0;
+                if (keys.j) targetRoll -= 15.0;
+                if (keys.l) targetRoll += 15.0;
             }
+
+            const deltaRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-targetPitch * dt, -inputYaw, -targetRoll * dt, 'YXZ'));
+            drone.rotation.multiply(deltaRotation).normalize();
 
             const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(drone.rotation);
             const accel = new THREE.Vector3().addVectors(localUp.multiplyScalar(currentThrottle * modeCfg.maxThrust), new THREE.Vector3(0, -GRAVITY, 0));
@@ -669,8 +651,6 @@
             droneGroup.position.copy(drone.position);
             droneGroup.quaternion.copy(drone.rotation);
 
-            updateAudio(currentThrottle, drone.velocity.length());
-
             if (cameraMode === "FPV") {
                 camera.position.copy(drone.position);
                 const camRot = drone.rotation.clone();
@@ -683,6 +663,8 @@
             }
 
             mousePitch = 0; mouseRoll = 0;
+            rawMouseX *= Math.exp(-12.0 * dt); 
+            rawMouseY *= Math.exp(-12.0 * dt);
 
             const speedKmh = (drone.velocity.length() * 3.6).toFixed(0);
             document.getElementById('osd-speed').innerText = speedKmh;
@@ -694,24 +676,25 @@
             totalDistance += (drone.velocity.length() * dt);
             document.getElementById('osd-travelled').innerText = totalDistance.toFixed(1);
 
-            // Stick ball calculations matching original exactly
+            // Stick UI positions
             const stickLeft = document.getElementById('stick-left');
             const stickRight = document.getElementById('stick-right');
             const maxPixelOffset = 35 * stickScale;
 
-            const leftY = -(stickyThrottleValue * 2 - 1) * maxPixelOffset; 
-            const leftX = (keys.d ? 1 : (keys.a ? -1 : 0)) * maxPixelOffset;
-            rawMouseX *= Math.exp(-12.0 * dt); rawMouseY *= Math.exp(-12.0 * dt);
-            const rightX = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, rawMouseX * 1.4));
-            const rightY = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, rawMouseY * 1.4));
+            let leftY = -(stickyThrottleValue * 2 - 1) * maxPixelOffset;
+            let leftX = (keys.d ? 1 : (keys.a ? -1 : 0)) * maxPixelOffset;
+            let rightX = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, (rawMouseX + (keys.l ? 25 : (keys.j ? -25 : 0))) * 1.2));
+            let rightY = Math.max(-maxPixelOffset, Math.min(maxPixelOffset, (rawMouseY + (keys.k ? 25 : (keys.i ? -25 : 0))) * 1.2));
 
-            const leftDistFromCenter = Math.hypot(leftX, leftY);
-            const rightDistFromCenter = Math.hypot(rightX, rightY);
-            const leftScale = 1 + Math.min(0.9, (leftDistFromCenter / maxPixelOffset) * 0.9);
-            const rightScale = 1 + Math.min(0.9, (rightDistFromCenter / maxPixelOffset) * 0.9);
+            if (isMobile) {
+                leftY = touchLeftValY * maxPixelOffset;
+                leftX = touchLeftValX * maxPixelOffset;
+                rightX = touchRightValX * maxPixelOffset;
+                rightY = touchRightValY * maxPixelOffset;
+            }
 
-            stickLeft.style.transform = `translate(calc(-50% + ${leftX}px), calc(-50% + ${leftY}px)) scale(${leftScale})`;
-            stickRight.style.transform = `translate(calc(-50% + ${rightX}px), calc(-50% + ${rightY}px)) scale(${rightScale})`;
+            stickLeft.style.transform = `translate(calc(-50% + ${leftX}px), calc(-50% + ${leftY}px))`;
+            stickRight.style.transform = `translate(calc(-50% + ${rightX}px), calc(-50% + ${rightY}px))`;
 
             renderer.render(scene, camera);
         }
