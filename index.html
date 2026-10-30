@@ -409,7 +409,7 @@
 
         const camera = new THREE.PerspectiveCamera(130, window.innerWidth / window.innerHeight, 0.1, 4000);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.__prCap || 1.75) * (window.__qRes || 1));
         container.appendChild(renderer.domElement);
@@ -1351,17 +1351,16 @@
             fragmentShader: `uniform sampler2D tex; uniform vec2 res; uniform float time; varying vec2 vUv;
                 float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
                 void main(){
-                    vec2 c = vUv - .5; float r2 = dot(c, c); vec2 off = c * r2 * 0.014;
+                    vec2 c = vUv - .5; float r2 = dot(c, c); vec2 off = c * r2 * 0.0;
                     vec3 col = vec3(texture2D(tex, vUv - off).r, texture2D(tex, vUv).g, texture2D(tex, vUv + off).b);
                     vec2 px = 2.5 / res;
                     vec3 b = (texture2D(tex, vUv + px).rgb + texture2D(tex, vUv - px).rgb + texture2D(tex, vUv + vec2(px.x, -px.y)).rgb + texture2D(tex, vUv + vec2(-px.x, px.y)).rgb) * .25;
-                    col += max(b - .7, 0.) * .6;
+                    col += (col - b) * .45;
+                    col += max(b - .7, 0.) * .3;
                     float l = dot(col, vec3(.299, .587, .114));
-                    col = mix(vec3(l), col, 1.15);
-                    col = (col - .5) * 1.12 + .5;
-                    col *= vec3(1.04, 1.0, .94);
-                    col *= 1. - smoothstep(.12, .62, r2 * 1.8) * .5;
-                    col += (hash(vUv * res + time) - .5) * .035;
+                    col = mix(vec3(l), col, 1.1);
+                    col = (col - .5) * 1.08 + .5;
+                    col *= 1. - smoothstep(.2, .7, r2 * 1.8) * .1;
                     gl_FragColor = vec4(col, 1.);
                 }`
         });
@@ -1388,6 +1387,7 @@
         window.postResize();
 
         function renderScene() {
+            if (window.SIG && SIG.skip()) return;
             const dx = Math.round(drone.position.x / 10) * 10, dz = Math.round(drone.position.z / 10) * 10;
             const so = window.__sunOff || [90, 52, -115]; window.__dome.position.copy(camera.position); sun.target.position.set(dx, 0, dz); sun.position.set(dx + so[0], so[1], dz + so[2]);
             droneShadow.visible = !sun.castShadow;
@@ -1887,7 +1887,7 @@
                 }
             }
 
-            if (window.RTH && RTH.active) { RTH.step(dt, modeCfg); } else if (isMobile) {
+            if (window.TURTLE && TURTLE.active) { TURTLE.step(dt); } else if (window.RTH && RTH.active) { RTH.step(dt, modeCfg); } else if (isMobile) {
                 inputYaw = touchLeftValX * YAW_RATE * dt;
                 targetPitch = touchRightValY * (modeCfg.hasAutoLevel ? modeCfg.maxAngle : 2.5);
                 targetRoll = -touchRightValX * (modeCfg.hasAutoLevel ? modeCfg.maxAngle : 2.5);
@@ -2028,7 +2028,7 @@
             const sigN = Math.max(1, 4 - Math.floor(homeDist / 220));
             if (sigN !== window._osdSig) {
                 window._osdSig = sigN;
-                ['osd-rc','osd-hd'].forEach(id => {
+                ['osd-rc'].forEach(id => {
                     const el = document.getElementById(id); el.innerHTML = '';
                     for (let i = 0; i < 4; i++) { const b = document.createElement('i'); b.style.height = (0.45 + i * 0.35) + 'em'; b.style.opacity = i < sigN ? 1 : 0.3; el.appendChild(b); }
                 });
@@ -2221,7 +2221,7 @@
             function frame(ts) {
                 requestAnimationFrame(frame); const dt = Math.min(0.1, (ts - last) / 1000) || 0.016; last = ts;
                 const show = gameStarted && inst.style.display !== 'flex' && !document.body.classList.contains('home-on') && !document.body.classList.contains('no-osd');
-                cv.style.display = show ? 'block' : 'none'; if (!show) return;
+                cv.style.display = show && window._oaOn !== false ? 'block' : 'none'; if (!show) return;
                 const p = drone.position; if (isArmed) flight += dt;
                 // downward sensor + nearby obstacles
                 let top = groundH(p.x, p.z); near.length = 0;
@@ -2237,7 +2237,7 @@
                 const m = Math.floor(flight / 60), sc = Math.floor(flight % 60);
                 $('osd-time').textContent = String(m).padStart(2, '0') + "'" + String(sc).padStart(2, '0') + '"';
                 $('osd-bat').textContent = Math.max(5, 89 - Math.floor(flight / 30));
-                $('osd-mbps').textContent = [10, 20, 40, 60][(window._osdSig || 4) - 1];
+                $('osd-mbps').textContent = window.SIG ? SIG.m : 60;
                 // obstacle avoidance arcs (radar ring around the view centre)
                 fwd.set(0, 0, -1).applyQuaternion(drone.rotation); const l = Math.hypot(fwd.x, fwd.z); if (l > 0.05) { hdg.x = fwd.x / l; hdg.z = fwd.z / l; }
                 g.clearRect(0, 0, W, H); const cx = W / 2, cy = H / 2, rx = W * 0.29, ry = H * 0.26; g.lineCap = 'butt';
@@ -2264,7 +2264,7 @@
             function frame(ts) {
                 requestAnimationFrame(frame); const dt = Math.min(0.1, (ts - last) / 1000) || 0.016; last = ts;
                 const on = gameStarted && inst.style.display !== 'flex' && !document.body.classList.contains('home-on') && !document.body.classList.contains('no-osd');
-                xh.style.display = on ? 'block' : 'none'; if (!on) { shown = false; toast.style.display = home.style.display = hm.style.display = 'none'; return; }
+                xh.style.display = on && window._xhOn !== false ? 'block' : 'none'; if (!on) { shown = false; toast.style.display = home.style.display = hm.style.display = 'none'; return; }
                 if (isArmed) flight += dt;
                 if (!shown) { shown = true; if (activeMode === 3) setToast('Manual mode. Fly with caution', 4500); }
                 if (activeMode !== window._osdLastMode) { window._osdLastMode = activeMode; if (activeMode === 3) setToast('Manual mode. Fly with caution', 4500); }
@@ -2290,25 +2290,26 @@
 
         /* ===== RTH: press H (or the house button) to return to home automatically ===== */
         window.RTH = (() => {
-            const HX = 0, HZ = 45, R = { active: false, phase: '', alt: 0, acc: 0, herr: 0 }, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const R = { active: false, phase: '', alt: 0, acc: 0, herr: 0, hx: 0, hz: 45, auto: false }, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
             const say = (t, ms) => { if (window._osdMsg) window._osdMsg(t, ms || 900); };
             const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
-            R.start = () => {
+            R.start = land => {
                 if (R.active || !isArmed) return;
-                const p = drone.position, dx = HX - p.x, dz = HZ - p.z, d = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(d / 3));
-                let need = groundH(HX, HZ) + 15;
+                R.hx = land ? drone.position.x : 0; R.hz = land ? drone.position.z : 45; R.auto = false;
+                const p = drone.position, dx = R.hx - p.x, dz = R.hz - p.z, d = Math.hypot(dx, dz), n = Math.max(1, Math.ceil(d / 3));
+                let need = groundH(R.hx, R.hz) + 15;
                 for (let i = 0; i <= n; i++) {          // pick a safe altitude above anything on the straight path home
                     const x = p.x + dx * i / n, z = p.z + dz * i / n; need = Math.max(need, groundH(x, z) + 12);
                     for (let k = 0; k < obstacles.length; k++) { const o = obstacles[k]; if (x > o.minX - 4 && x < o.maxX + 4 && z > o.minZ - 4 && z < o.maxZ + 4 && o.maxY + 8 > need) need = o.maxY + 8; }
                 }
-                R.alt = Math.min(130, Math.max(p.y, need)); R.phase = d < 2 ? 'land' : 'climb'; R.active = true; R.acc = 0;
+                R.alt = Math.min(130, Math.max(p.y, need)); R.phase = (d < 2 || land) ? 'land' : 'climb'; R.active = true; R.acc = 0;
                 say('Returning to home. Press H or move the sticks to cancel', 1500);
             };
-            R.cancel = t => { if (!R.active) return; R.active = false; stickyThrottleValue = currentThrottle; say(t || 'Return to home cancelled', 2200); };
+            R.cancel = t => { if (!R.active || (R.auto && window.SIG && SIG.m <= 0)) return; R.active = false; stickyThrottleValue = currentThrottle; say(t || 'Return to home cancelled', 2200); };
             R.toggle = () => { if (R.active) R.cancel(); else if (gameStarted && isArmed && inst.style.display !== 'flex') R.start(); };
             R.step = (dt, cfg) => {
                 R.acc *= Math.exp(-3 * dt);
-                const p = drone.position, v = drone.velocity, dx = HX - p.x, dz = HZ - p.z, d = Math.hypot(dx, dz) || 0.001, h = p.y - groundH(p.x, p.z) - 0.3;
+                const p = drone.position, v = drone.velocity, dx = R.hx - p.x, dz = R.hz - p.z, d = Math.hypot(dx, dz) || 0.001, h = p.y - groundH(p.x, p.z) - 0.3;
                 if (d > 1.5) { const diff = wrap(Math.atan2(-dx, -dz) - drone.euler.y); drone.euler.y += clamp(diff, -2.2 * dt, 2.2 * dt); R.herr = Math.abs(diff); } else R.herr = 0;
                 let vx = 0, vz = 0, vy = 0, txt;
                 if (R.phase === 'climb') { vy = Math.min(5, (R.alt - p.y) + 0.6); txt = 'Returning to home - climbing'; if (p.y >= R.alt - 1.5) R.phase = 'cruise'; }
@@ -2329,6 +2330,315 @@
             ['touch-left-pad', 'touch-right-pad'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('touchstart', () => R.cancel(), { passive: true }); });
             const bar = document.getElementById('btn-retry'); if (bar) { const b = document.createElement('button'); b.className = 'top-btn'; b.id = 'btn-rth'; b.title = 'Return to home (H)'; b.innerHTML = '&#8962;'; b.addEventListener('click', e => { e.stopPropagation(); R.toggle(); }); bar.parentNode.insertBefore(b, bar); }
             return R;
+        })();
+
+        /* ===== DJI Avata 2 style digital video link: max 60 Mbps, low-bitrate blocks + shuttering, frozen B&W frame at 0 Mbps, auto RTH (no GPS), water = battery error ===== */
+        window.SIG = (() => {
+            const S = { m: 58, v: 58, frozen: false, force: false, water: false, on: false, cap: 60, act: 'rth', fi: 0, lr: 0, user: '' }, host = document.getElementById('canvas-container'), cvs = renderer.domElement, fx = document.createElement('canvas'), g = fx.getContext('2d'), $ = id => document.getElementById(id), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), KS = [1, 2, 3, 4, 6, 8, 11, 14], FROZEN = 'grayscale(1) contrast(1.1) brightness(0.92)';
+            fx.id = 'sig-fx'; fx.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:11;display:none;'; host.appendChild(fx);
+            const st = document.createElement('style'); st.textContent = '@keyframes oerr{50%{opacity:.35}} #osd-err{left:50%;top:17vh;transform:translateX(-50%);display:none;padding:1.2vh 1.8vw;background:rgba(0,0,0,.6);border:2px solid #ff3b30;color:#ff3b30;font:700 clamp(14px,2vw,30px) Arial,sans-serif;font-style:normal;text-shadow:none;animation:oerr 1s infinite;white-space:nowrap;z-index:16} body.home-on #osd-err,body.no-osd #osd-err{display:none!important}'; document.head.appendChild(st);
+            const err = document.createElement('div'); err.id = 'osd-err'; err.className = 'fosd'; err.textContent = '\u26A0 Battery communication error'; host.appendChild(err);
+            let blocked = false, tgt = 58, nextT = 0, k = 1, bars = -1, flt = '', recov = 0, glitch = 0, nextG = 0, lossT = 0, autoDone = false, holdUntil = 0, nextHold = 0, wasOn = false, last = performance.now();
+            const applyF = f => { flt = f; const v = ((f + ' ' + (S.on ? S.user : '')).trim()); cvs.style.filter = fx.style.filter = v; };
+            S.refresh = () => applyF(flt);
+            const setK = nk => { if (nk === k) return; k = nk; if (k > 1) { fx.width = Math.ceil(cvs.width / k); fx.height = Math.ceil(cvs.height / k); } fx.style.display = k > 1 ? 'block' : 'none'; fx.style.imageRendering = k >= 8 ? 'pixelated' : 'auto'; };
+            function los(px, py, pz) {   // straight line drone -> home antenna blocked by a building / tree?
+                const sx = 0, sy = 2, sz = 45, dx = px - sx, dy = py - sy, dz = pz - sz;
+                for (let i = 0; i < obstacles.length; i++) {
+                    const o = obstacles[i]; if (sx >= o.minX && sx <= o.maxX && sz >= o.minZ && sz <= o.maxZ) continue;
+                    let t0 = 0.04, t1 = 0.96, ok = true;
+                    const ax = [[sx, dx, o.minX, o.maxX], [sy, dy, o.minY, o.maxY], [sz, dz, o.minZ, o.maxZ]];
+                    for (let j = 0; j < 3; j++) {
+                        const q = ax[j]; if (Math.abs(q[1]) < 1e-6) { if (q[0] < q[2] || q[0] > q[3]) { ok = false; break; } continue; }
+                        let a = (q[2] - q[0]) / q[1], b = (q[3] - q[0]) / q[1]; if (a > b) { const c = a; a = b; b = c; } if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) { ok = false; break; }
+                    }
+                    if (ok) return true;
+                }
+                return false;
+            }
+            // frame gate for the 3D render: frozen at 0 Mbps, shuttering bursts at low bitrate, and the chosen video fps
+            S.skip = () => {
+                if (!S.on) return false; if (S.frozen) return true; const now = performance.now();
+                if (S.m < 28) { if (now > nextHold) { nextHold = now + 250 + Math.random() * (300 + S.m * 40); holdUntil = now + 80 + (1 - S.m / 28) * 320 * Math.random(); } if (now < holdUntil) return true; }
+                if (S.fi && now - S.lr < S.fi * 0.92) return true; S.lr = now; return false;
+            };
+            const msg = (t, ms) => { if (window._osdMsg) window._osdMsg(t, ms); };
+            function frame(ts) {
+                requestAnimationFrame(frame); const dt = Math.min(0.1, (ts - last) / 1000) || 0.016; last = ts;
+                S.on = gameStarted && inst.style.display !== 'flex' && !document.body.classList.contains('home-on');
+                if (S.on !== wasOn) { wasOn = S.on; applyF(S.on ? flt : ''); }
+                if (!S.on) { if (flt) applyF(''); setK(1); S.frozen = false; err.style.display = 'none'; return; }
+                const p = drone.position, d = Math.hypot(p.x, p.z - 45), gh = groundH(p.x, p.z);
+                // water: crashing / landing into the lake or sea kills the battery link
+                if (!S.water && gh <= -0.39 && p.y <= 0.0) { S.water = true; if (isArmed) toggleMotors(); if (window.RTH) RTH.active = false; }
+                if (S.water && gh > -0.39) { S.water = false; nextT = 0; }
+                err.style.display = S.water ? 'block' : 'none';
+                if (ts > nextT) {
+                    nextT = ts + 250 + Math.random() * 450; blocked = los(p.x, p.y, p.z);
+                    let base = S.cap * Math.max(0, 1 - Math.pow(d / 1000, 1.3)); if (blocked) base *= 0.3; if (S.force || S.water) base = 0;
+                    tgt = base > 0.5 ? clamp(base * (0.88 + Math.random() * 0.12), 1, S.cap) : 0;
+                }
+                if (S.water) { tgt = 0; S.v = 0; }
+                S.v += (tgt - S.v) * Math.min(1, dt * (tgt === 0 ? 6 : 3)); S.m = tgt > 0 ? Math.max(1, Math.round(S.v)) : (S.v < 0.6 ? 0 : Math.max(1, Math.round(S.v)));
+                const hdN = S.m <= 0 ? 0 : clamp(Math.ceil(S.m / (S.cap / 3.4)), 1, 4);
+                if (hdN !== bars) { bars = hdN; const el = $('osd-hd'); el.innerHTML = ''; for (let i = 0; i < 4; i++) { const b = document.createElement('i'); b.style.height = (0.45 + i * 0.35) + 'em'; b.style.opacity = i < hdN ? 1 : 0.3; el.appendChild(b); } }
+                const mb = $('osd-mbps'); if (mb && mb.parentNode) mb.parentNode.style.color = S.m <= 0 ? '#ff2a2a' : ''; $('osd-rc').style.opacity = S.water ? 0.3 : 1;
+                if (S.m <= 0 && !S.frozen) { S.frozen = true; applyF(FROZEN); if (!S.water) msg('Video signal lost.', 3000); }
+                if (S.m > 0 && S.frozen) { S.frozen = false; applyF(''); recov = 1.2; msg('Video signal restored', 2200); }
+                if (S.frozen) {
+                    lossT += dt;   // link lost: the aircraft returns home on its own (works without GPS)
+                    if (lossT > 2.5 && !autoDone && !S.water && isArmed && window.RTH && !RTH.active) { autoDone = true; RTH.start(S.act === 'land'); RTH.auto = true; msg(S.act === 'land' ? 'Signal lost. Landing automatically.' : 'Signal lost. Returning to home automatically.', 4500); }
+                    return;
+                }
+                lossT = 0; if (autoDone) { autoDone = false; if (window.RTH) RTH.auto = false; }
+                // low bitrate: stays connected, the digital picture turns soft and blocky (macroblocks) and shutters
+                recov = Math.max(0, recov - dt); const mE = S.m * (1 - Math.min(0.8, recov * 0.6)), t = clamp((S.cap / 2 - mE) / (S.cap / 2), 0, 1);
+                setK(KS[t <= 0 ? 0 : clamp(Math.round(1 + Math.pow(t, 1.2) * 6), 1, 7)]);
+                if (k > 1) {
+                    g.imageSmoothingEnabled = true; g.drawImage(cvs, 0, 0, fx.width, fx.height);
+                    if (ts > nextG) { nextG = ts + 500 + (1 - t) * 1800 + Math.random() * 700; glitch = ts + 130; }
+                    if (ts < glitch) for (let i = 0, n = 3 + Math.floor(t * 6); i < n; i++) {   // corrupted macroblocks smeared sideways
+                        const bw = Math.floor(fx.width * (0.08 + Math.random() * 0.3)), bh = 2 + Math.floor(Math.random() * 5), sx = Math.floor(Math.random() * (fx.width - bw)), sy = Math.floor(Math.random() * (fx.height - bh)), off = Math.floor((Math.random() - 0.5) * 8);
+                        g.drawImage(fx, sx, sy, bw, bh, sx + off, sy + (Math.random() < 0.5 ? 0 : bh), bw, bh);
+                    }
+                }
+            }
+            addEventListener('keydown', e => { if (e.key.toLowerCase() === 'g' && !e.repeat && gameStarted) { S.force = !S.force; nextT = 0; } });
+            requestAnimationFrame(frame);
+            return S;
+        })();
+
+        /* ===== Turtle mode: flip the aircraft back upright after a crash (T or quick menu) ===== */
+        window.TURTLE = (() => {
+            const T = { active: false, t: 0, y0: 0, q0: new THREE.Quaternion(), q1: new THREE.Quaternion() }, say = (t, ms) => { if (window._osdMsg) window._osdMsg(t, ms || 2500); };
+            T.start = () => {
+                if (T.active || !gameStarted || (window.RTH && RTH.active)) return;
+                const p = drone.position, up = new THREE.Vector3(0, 1, 0).applyQuaternion(drone.rotation);
+                if (p.y > groundH(p.x, p.z) + 0.6 || up.y > 0.35) { say('Turtle mode: only available when the aircraft is upside down on the ground.', 3200); return; }
+                const yaw = new THREE.Euler().setFromQuaternion(drone.rotation, 'YXZ').y;
+                T.q0.copy(drone.rotation); T.q1.setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ')); T.y0 = p.y; T.t = 0; T.active = true; say('Turtle mode: flipping the aircraft...', 2500);
+            };
+            T.step = dt => {
+                T.t += dt; const u = Math.min(1, T.t / 1.2), e = u * u * (3 - 2 * u);
+                drone.rotation.copy(T.q0).slerp(T.q1, e); drone.position.y = T.y0 + Math.sin(u * Math.PI) * 0.5; drone.velocity.set(0, 0, 0); currentThrottle = 0; stickyThrottleValue = 0;
+                if (u >= 1) { T.active = false; drone.euler.setFromQuaternion(drone.rotation, 'YXZ'); say('Turtle mode finished. Aircraft is upright.', 2500); }
+            };
+            document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 't' && !e.repeat) T.start(); });
+            return T;
+        })();
+
+        /* ===== DJI Goggles style menus: "..." button -> quick menu (photo 2) -> Settings (photo 1), with a VR-style round cursor ===== */
+        (() => {
+            const $ = id => document.getElementById(id), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const M = Object.assign({ ar: '16:9', vq: '4K/60', fov: 'Wide', eis: 'RockSteady', iso: '6400', grid: 'Off', center: true, oa: true, maxbr: 60, act: 'Return to Home', bright: 0.5, osdrec: true }, store.get('dji_menu', {}));
+            const sv = () => store.set('dji_menu', M); window.DJIM = M; const mm = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+            window.DJIGRID = t => { const o = [], ln = v => v.forEach(x => { o.push([x, 0, x, 1], [0, x, 1, x]); }); if (t === 'Grid' || t === 'Grid+Diagonals') ln([1 / 3, 2 / 3]); if (t === '4x4 Grid') ln([0.25, 0.5, 0.75]); if (t === 'Golden Ratio') ln([0.382, 0.618]); if (t === 'Center Cross') ln([0.5]); if (t === 'Diagonals' || t === 'Grid+Diagonals') o.push([0, 0, 1, 1], [1, 0, 0, 1]); return o; };
+            const VQ = ['4K/60', '4K/50', '4K/30', '2.7K/120', '2.7K/100', '2.7K/60', '2.7K/50', '2.7K/30', '1080p/120', '1080p/100', '1080p/60', '1080p/50', '1080p/30'], RES = { '4K': 100, '2.7K': 75, '1080p': 55 }, FOVS = { Wide: 130, Standard: 110, Narrow: 90 };
+            const ROWS = {
+                cam: [['ar', 'Aspect Ratio', ['16:9', '4:3', '21:9']], ['vq', 'Video Quality', VQ], ['fov', 'Camera FOV', ['Wide', 'Standard', 'Narrow']], ['eis', 'EIS', ['RockSteady', 'HorizonSteady', 'Off']], ['iso', 'Auto ISO Limit', ['6400', '3200', '1600', '800', '400']], ['grid', 'Gridlines', ['Off', 'Grid', '4x4 Grid', 'Diagonals', 'Grid+Diagonals', 'Center Cross', 'Golden Ratio']], ['center', 'Center Point', 'toggle'], ['osdrec', 'Camera OSD Record', 'toggle'], ['oa', 'Obstacle Sensing', 'toggle'], ['storage', 'Storage', 'info', 'SD Card', '115.6GB available']],
+                trans: [['maxbr', 'Max Bitrate', ['60 Mbps', '40 Mbps', '25 Mbps', '10 Mbps']], ['act', 'Signal Loss Action', ['Return to Home', 'Land']], ['link', 'Video Link', 'info', 'Digital O4', 'Auto channel']]
+            };
+            const get = k => k === 'maxbr' ? M.maxbr + ' Mbps' : M[k], put = (k, v) => { if (k === 'maxbr') M.maxbr = parseInt(v); else M[k] = v; };
+            const css = document.createElement('style');
+            css.textContent = `#gm{position:fixed;inset:0;z-index:70;display:none;cursor:none;font-family:"Segoe UI",Arial,sans-serif;color:#f2f2f2;user-select:none;-webkit-user-select:none} #gm.on{display:block} #gm *{cursor:none}
+            .gm-bar{position:absolute;left:50%;top:6vh;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;background:rgba(42,45,50,.95);border-radius:4px;padding:1.2vh .8vw .8vh}
+            .gm-row{display:flex;gap:.45vw;align-items:center}
+            .gm-it{width:5vw;height:7.6vh;min-width:42px;background:rgba(18,20,22,.92);display:flex;align-items:center;justify-content:center;border:2px solid transparent;border-radius:2px} .gm-it:hover,.gm-it.sel{border-color:#f5c400} .gm-it svg{width:52%;height:58%;fill:none;stroke:#f2f2f2;stroke-width:1.6}
+            .gm-lab{font-size:clamp(12px,1.35vw,22px);margin-top:.9vh;min-height:1.3em}
+            .gm-br{display:flex;align-items:center;gap:.6vw;background:rgba(18,20,22,.92);padding:0 .9vw;height:7.6vh;margin-left:.4vw} .gm-br svg{width:1.8vw;min-width:20px;fill:none;stroke:#f2f2f2;stroke-width:1.8} .gm-br i{display:block;width:10vw;min-width:80px;height:1.5vh;background:#555;position:relative} .gm-br b{position:absolute;left:0;top:0;bottom:0;background:#eee}
+            .gm-set{position:absolute;left:14vw;top:8vh;height:84vh;display:none;gap:.5vw} .gm-side,.gm-main,.gm-opts{background:rgba(22,22,22,.95);border-radius:3px}
+            .gm-side{width:11vw;display:flex;flex-direction:column} .gm-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1vh;font-size:clamp(11px,1.15vw,19px);border:2px solid transparent} .gm-tab:hover{background:#2a2a2a} .gm-tab.sel{color:#f5c400;background:#161616} .gm-tab svg{width:2.4vw;height:2.4vw;min-width:24px;min-height:24px;fill:none;stroke:currentColor;stroke-width:2}
+            .gm-main{width:36vw;display:flex;flex-direction:column;overflow:hidden} .gm-h{text-align:center;font-size:clamp(14px,1.6vw,26px);padding:2.4vh 0;border-bottom:1px solid #333} .gm-rows{flex:1;overflow:auto}
+            .gm-r{display:flex;align-items:center;justify-content:space-between;padding:0 1.6vw;min-height:10.8vh;font-size:clamp(13px,1.5vw,25px);border:2px solid transparent} .gm-r:hover{border-color:#f5c400;background:#2b2b2b} .gm-r.sel{background:#2b2b2b} .gm-r small{opacity:.7;font-size:.6em;margin-left:.3em} .gm-r em{display:block;font-style:normal;font-size:.62em;text-align:right;opacity:.8}
+            .gm-tg{width:3.2vw;min-width:40px;height:3.4vh;min-height:22px;border-radius:99px;background:#555;position:relative} .gm-tg.on{background:#1ec98a} .gm-tg:after{content:'';position:absolute;top:12%;bottom:12%;aspect-ratio:1;border-radius:50%;background:#fff;left:6%} .gm-tg.on:after{left:auto;right:6%}
+            .gm-opts{width:11vw;display:none;overflow:auto} .gm-o{height:12vh;display:flex;align-items:center;justify-content:center;font-size:clamp(12px,1.35vw,22px);border:2px solid transparent;text-align:center} .gm-o.cur{color:#f5c400} .gm-o:hover{background:#000;border-color:#f5c400}
+            #vr-cursor{position:fixed;width:2.8vh;height:2.8vh;min-width:22px;min-height:22px;border-radius:50%;background:rgba(205,205,205,.82);box-shadow:0 0 0 2px rgba(255,255,255,.35);transform:translate(-50%,-50%);pointer-events:none;z-index:71;display:none} #gm.on~#vr-cursor{display:block}
+            @media (pointer:coarse){#vr-cursor{display:none!important}}
+            #gm-rec{position:fixed;right:9vw;top:27vh;z-index:15;display:none;align-items:center;gap:.6vw;font:italic 700 clamp(12px,1.5vw,24px) Arial,sans-serif;color:#f4f4f4;text-shadow:0 0 3px #000;pointer-events:none} #gm-rec i{width:.8em;height:.8em;border-radius:50%;background:#f01c1c;display:block} body.home-on #gm-rec,body.no-osd #gm-rec{display:none!important}
+            #gm-pause{position:fixed;left:50%;top:68vh;width:9vh;height:9vh;margin-left:-4.5vh;border-radius:50%;background:rgba(60,25,15,.7);border:2px solid rgba(190,80,50,.6);display:none;align-items:center;justify-content:center;z-index:16;gap:.9vh} #gm-pause b{width:1vh;height:3.6vh;background:#f4f4f4;display:block;border-radius:1px} body.home-on #gm-pause,body.no-osd #gm-pause{display:none!important}
+            .gm-pad{padding:2vh 1.6vw;font-size:clamp(12px,1.35vw,22px);line-height:2}.gm-pad div{display:flex;justify-content:space-between;border-bottom:1px solid #333} .gm-pad [data-dl]:hover{border-color:#f5c400!important}`;
+            document.head.appendChild(css);
+            const IC = {
+                rec: '<svg viewBox="0 0 24 24" style="fill:#e02020;stroke:none"><rect x="2" y="7" width="14" height="10" rx="2"/><path d="M17 10l5-3v10l-5-3z"/></svg>',
+                photo: '<svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="3.8"/></svg>',
+                mode: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.8"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></svg>',
+                turtle: '<svg viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 18 0z"/><path d="M12 7v9M7.5 9.5l2 6.5M16.5 9.500l-2 6.500M5 19l-2 2M19 19l2 2"/></svg>',
+                rth: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5.5 9.5V20h13V9.5M10 20v-6h4v6"/></svg>',
+                oa: '<svg viewBox="0 0 24 24"><path d="M3 13a9 9 0 0 1 18 0M6 13a6 6 0 0 1 12 0M9 13a3 3 0 0 1 6 0"/><circle cx="12" cy="17.5" r="1.5"/></svg>',
+                set: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>',
+                sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>',
+                st: '<svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>', al: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 17l6-6 5 5 3-3 4 4"/></svg>', tr: '<svg viewBox="0 0 24 24"><path d="M3 8h17l-4-4M21 16H4l4 4"/></svg>', se: '<svg viewBox="0 0 24 24" style="fill:#f5c400;stroke:none"><path d="M12 2l8.700 5v10L12 22l-8.700-5V7z"/><circle cx="12" cy="12" r="3.200" fill="#222"/></svg>'
+            };
+            const gm = document.createElement('div'); gm.id = 'gm';
+            gm.innerHTML = '<div class="gm-bar" id="gm-bar"></div><div class="gm-set" id="gm-set"><div class="gm-side" id="gm-side"></div><div class="gm-main"><div class="gm-h" id="gm-h"></div><div class="gm-rows" id="gm-rows"></div></div><div class="gm-opts" id="gm-opts"></div></div>';
+            document.body.appendChild(gm);
+            const cur = document.createElement('div'); cur.id = 'vr-cursor'; document.body.appendChild(cur);
+            const rec = document.createElement('div'); rec.id = 'gm-rec'; rec.innerHTML = '<i></i><span id="gm-rect">00:00</span>'; document.body.appendChild(rec);
+            const pz = document.createElement('div'); pz.id = 'gm-pause'; pz.innerHTML = '<b></b><b></b>'; pz.onclick = () => { if (window.RTH) RTH.cancel(); }; document.body.appendChild(pz);
+            // overlays: aspect ratio bars + gridlines
+            const mkO = () => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;background:#000;z-index:12;pointer-events:none;display:none'; document.body.appendChild(d); return d; }, bl = [mkO(), mkO(), mkO(), mkO()];
+            const gridEl = document.createElement('div'); gridEl.style.cssText = 'position:fixed;inset:0;z-index:12;pointer-events:none;display:none'; document.body.appendChild(gridEl);
+            function bars() {
+                const W = innerWidth, H = innerHeight, r = M.ar === '4:3' ? 4 / 3 : M.ar === '21:9' ? 21 / 9 : 0; let bw = 0, bh = 0; if (r) { if (W / H > r) bw = (W - H * r) / 2; else bh = (H - W / r) / 2; }
+                const st = [['left:0;top:0;bottom:0;width:' + bw + 'px', bw], ['right:0;top:0;bottom:0;width:' + bw + 'px', bw], ['left:0;right:0;top:0;height:' + bh + 'px', bh], ['left:0;right:0;bottom:0;height:' + bh + 'px', bh]];
+                bl.forEach((d, i) => { d.style.display = st[i][1] > 0 ? 'block' : 'none'; d.style.left = d.style.right = d.style.top = d.style.bottom = d.style.width = d.style.height = ''; d.style.cssText += ';' + st[i][0]; });
+            }
+            function grid() {
+                gridEl.style.display = M.grid === 'Off' ? 'none' : 'block'; if (M.grid === 'Off') return;
+                gridEl.innerHTML = '<svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">' + DJIGRID(M.grid).map(l => '<path d="M' + l[0] * 100 + ' ' + l[1] * 100 + 'L' + l[2] * 100 + ' ' + l[3] * 100 + '" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.3" vector-effect="non-scaling-stroke"/>').join('') + '</svg>';
+            }
+            const fps = () => parseInt(M.vq.split('/')[1]) || 60;
+            function apply(k, user) {
+                if (!k || k === 'ar') bars(); if (!k || k === 'grid') grid(); if (!k || k === 'center') window._xhOn = M.center; if (!k || k === 'oa') window._oaOn = M.oa;
+                if (!k || k === 'maxbr') SIG.cap = M.maxbr; if (!k || k === 'act') SIG.act = M.act === 'Land' ? 'land' : 'rth';
+                if (!k || k === 'bright') { SIG.user = Math.abs(M.bright - 0.5) < 0.02 ? '' : 'brightness(' + (0.6 + M.bright * 0.8).toFixed(2) + ')'; SIG.refresh(); }
+                if (!k || k === 'vq') { SIG.fi = 1000 / fps(); if (user) { SET.res = RES[M.vq.split('/')[0]]; applySettings(); } }
+                if (k === 'fov' && user) { SET.fov = FOVS[M.fov]; applySettings(); }
+            }
+            addEventListener('resize', bars); apply();
+            // ---- quick menu (photo 2)
+            let open = '', tab = 'se', row = null;
+            const ITEMS = [['rec', 'Record'], ['photo', 'Photo'], ['mode', 'Flight Mode'], ['turtle', 'Turtle Mode'], ['rth', 'Return to Home'], ['oa', 'Obstacle Sensing'], ['set', 'Settings']], MN = ['Normal', 'Sport', 'Manual'];
+            const bar = $('gm-bar');
+            function qLabel(id) { return id === 'rec' ? 'Record: ' + (CAM.rec ? 'On' : 'Off') : id === 'mode' ? 'Flight Mode: ' + MN[activeMode - 1] : id === 'oa' ? 'Obstacle Sensing: ' + (M.oa ? 'On' : 'Off') : ITEMS.find(i => i[0] === id)[1]; }
+            function qBuild() {
+                bar.innerHTML = '<div class="gm-row">' + ITEMS.map(i => '<div class="gm-it' + ((i[0] === 'rec' && CAM.rec) || (i[0] === 'oa' && M.oa) ? ' sel' : '') + '" data-q="' + i[0] + '">' + IC[i[0]] + '</div>').join('') + '<div class="gm-br" id="gm-br">' + IC.sun + '<i><b style="width:' + (M.bright * 100) + '%"></b></i></div></div><div class="gm-lab" id="gm-lab">Quick Menu</div>';
+                bar.querySelectorAll('.gm-it').forEach(el => { const id = el.dataset.q; el.onmouseenter = () => { $('gm-lab').textContent = qLabel(id); }; el.onclick = e => { e.stopPropagation(); qAct(id); }; });
+                const br = $('gm-br'), bi = br.querySelector('i'); let drag = false; const setB = e => { const r = bi.getBoundingClientRect(); M.bright = clamp((e.clientX - r.left) / r.width, 0, 1); bi.firstChild.style.width = M.bright * 100 + '%'; apply('bright'); };
+                br.onpointerdown = e => { drag = true; br.setPointerCapture(e.pointerId); setB(e); $('gm-lab').textContent = 'Brightness'; }; br.onpointermove = e => { if (drag) setB(e); }; br.onpointerup = () => { drag = false; sv(); };
+            }
+            function qAct(id) {
+                if (id === 'rec') CAM.toggleRec();
+                else if (id === 'photo') CAM.photo();
+                else if (id === 'mode') activeMode = (activeMode % 3) + 1;
+                else if (id === 'turtle') { show(''); TURTLE.start(); return; }
+                else if (id === 'rth') { show(''); RTH.toggle(); return; }
+                else if (id === 'oa') { M.oa = !M.oa; sv(); apply('oa'); }
+                else if (id === 'set') { show('set'); return; }
+                qBuild(); $('gm-lab').textContent = qLabel(id);
+            }
+            // ---- settings menu (photo 1)
+            const TABS = [['st', 'Status'], ['al', 'Album'], ['tr', 'Transmission'], ['se', 'Settings']];
+            function sBuild() {
+                $('gm-side').innerHTML = TABS.map(t => '<div class="gm-tab' + (t[0] === tab ? ' sel' : '') + '" data-t="' + t[0] + '">' + IC[t[0]] + '<span>' + t[1] + '</span></div>').join('');
+                $('gm-side').querySelectorAll('.gm-tab').forEach(el => el.onclick = e => { e.stopPropagation(); tab = el.dataset.t; row = null; $('gm-opts').style.display = 'none'; sBuild(); });
+                $('gm-h').textContent = tab === 'se' ? 'Camera' : tab === 'tr' ? 'Transmission' : tab === 'st' ? 'Status' : 'Album'; rBuild();
+            }
+            function sRows() {
+                const L = tab === 'se' ? ROWS.cam : tab === 'tr' ? ROWS.trans : null; if (!L) return;
+                $('gm-rows').innerHTML = L.map(r => r[2] === 'toggle' ? '<div class="gm-r" data-k="' + r[0] + '"><span>' + r[1] + '</span><div class="gm-tg' + (M[r[0]] ? ' on' : '') + '"></div></div>' : r[2] === 'info' ? '<div class="gm-r" style="pointer-events:none"><span>' + r[1] + '</span><span>' + r[3] + '<em>' + r[4] + '</em></span></div>' : '<div class="gm-r' + (row === r[0] ? ' sel' : '') + '" data-k="' + r[0] + '"><span>' + r[1] + '</span><span>' + get(r[0]) + '<small>\u21D5</small></span></div>').join('');
+                $('gm-rows').querySelectorAll('.gm-r[data-k]').forEach(el => el.onclick = e => {
+                    e.stopPropagation(); const k = el.dataset.k, r = L.find(x => x[0] === k);
+                    if (r[2] === 'toggle') { M[k] = !M[k]; sv(); apply(k); sRows(); return; }
+                    row = k; sRows(); const o = $('gm-opts'); o.style.display = 'block'; o.innerHTML = r[2].map(v => '<div class="gm-o' + (v === get(k) ? ' cur' : '') + '" data-v="' + v + '">' + v + '</div>').join('');
+                    o.querySelectorAll('.gm-o').forEach(oe => oe.onclick = ev => { ev.stopPropagation(); put(k, oe.dataset.v); sv(); apply(k, true); o.style.display = 'none'; row = null; sRows(); });
+                });
+            }
+            function rBuild() {
+                const rw = $('gm-rows');
+                if (tab === 'st') { const rr = [['Flight Mode', MN[activeMode - 1]], ['Aircraft Battery', $('osd-bat').textContent + '%'], ['Flight Time', $('osd-time').textContent], ['Height', $('osd-h').textContent], ['Distance', $('osd-d').textContent], ['Video Link', SIG.m + ' Mbps (max ' + SIG.cap + ')'], ['Satellites', $('osd-sat').textContent], ['Goggles Battery', $('osd-gog').textContent]]; rw.innerHTML = '<div class="gm-pad">' + rr.map(r => '<div><span>' + r[0] + '</span><span>' + r[1] + '</span></div>').join('') + '</div>'; }
+                else if (tab === 'al') rw.innerHTML = '<div class="gm-pad">' + (CAM.clips.length ? CAM.clips.map((c, i) => '<div data-dl="' + i + '" style="pointer-events:auto;border:2px solid transparent"><span>' + c.n + '</span><span>' + (c.kind === 'photo' ? 'Photo' : mm(c.t)) + ' \u2B07</span></div>').join('') : '<div><span>No photos or videos yet. Use P (photo) or V (record).</span></div>') + '</div>';
+                else sRows();
+            }
+            $('gm-rows').addEventListener('click', e => { const d = e.target.closest('[data-dl]'); if (d) CAM.download(+d.dataset.dl); }); window._gmRefresh = () => { if (open === 'set' && tab === 'al') rBuild(); };
+            setInterval(() => { if (open === 'set' && tab === 'st') rBuild(); }, 500);
+            function show(w) {
+                open = w; gm.className = w ? 'on' : ''; bar.style.display = w === 'quick' ? 'flex' : 'none'; $('gm-set').style.display = w === 'set' ? 'flex' : 'none';
+                if (w === 'quick') { qBuild(); } if (w === 'set') { $('gm-opts').style.display = 'none'; sBuild(); }
+                if (w) { window.__gmOpen = true; if (document.pointerLockElement) document.exitPointerLock(); }
+                else if (window.__gmOpen) { window.__gmOpen = false; if (!isMobile && gameStarted) { try { const pr = container.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} } }
+            }
+            document.addEventListener('pointerlockchange', () => { if (window.__gmOpen && !isMobile && !document.pointerLockElement) { inst.style.display = 'none'; inst.style.opacity = '0'; } });
+            gm.addEventListener('click', e => { e.stopPropagation(); if (e.target === gm) show(''); });
+            gm.addEventListener('pointermove', e => { cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px'; });
+            const bar2 = document.getElementById('top-action-bar'); if (bar2) { const b = document.createElement('button'); b.className = 'top-btn'; b.id = 'btn-gm'; b.title = 'Menu'; b.innerHTML = '&#8943;'; b.addEventListener('click', e => { e.stopPropagation(); show(open ? '' : 'quick'); }); bar2.appendChild(b); }
+            addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (!gameStarted) return; if (k === 'o' && !e.repeat) show(open ? '' : 'quick'); else if (k === 'escape' && open) show(''); });
+            // recording timer, RTH pause button, EIS-off camera shake
+            let lt = performance.now();
+            (function loop(ts) {
+                requestAnimationFrame(loop); const dt = Math.min(0.1, (ts - lt) / 1000) || 0.016; lt = ts;
+                pz.style.display = window.RTH && RTH.active && SIG.on ? 'flex' : 'none';
+                const cv = renderer.domElement;
+                if (M.eis === 'Off' && SIG.on && !SIG.frozen) { const a = 1 + Math.min(4, Math.hypot(drone.velocity.x, drone.velocity.y, drone.velocity.z) * 0.25); cv.style.transform = 'translate(' + ((Math.random() - 0.5) * a).toFixed(1) + 'px,' + ((Math.random() - 0.5) * a).toFixed(1) + 'px) scale(1.012)'; } else if (cv.style.transform) cv.style.transform = '';
+            })(performance.now());
+        })();
+
+        /* ===== Camera: photo + video recording (with optional OSD / grid baked in), download, album ===== */
+        window.CAM = (() => {
+            const $ = id => document.getElementById(id), C = { rec: false, clips: [], t: 0, n: 0 }, FROZEN = 'grayscale(1) contrast(1.1) brightness(0.92)';
+            const full = document.createElement('canvas'), fg = full.getContext('2d'), out = document.createElement('canvas'), og = out.getContext('2d'), pc = document.createElement('canvas'), pg = pc.getContext('2d');
+            const say = (t, ms) => { if (window._osdMsg) window._osdMsg(t, ms || 2000); };
+            const vis = el => { if (!el) return false; const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.05 && el.getClientRects().length > 0; };
+            let mr = null, chunks = [], recStart = 0;
+            const icons = {};
+            const mkIcon = sel => { const el = document.querySelector(sel); if (!el) return null; const c = el.cloneNode(true), vb = (c.getAttribute('viewBox') || '0 0 24 24').split(' '); c.setAttribute('width', 96); c.setAttribute('height', Math.round(96 * vb[3] / vb[2])); c.removeAttribute('style'); const im = new Image(); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c)); return im; };
+            setTimeout(() => { icons.sat = mkIcon('#fpv-osd-right .osd-sat svg'); icons.gog = mkIcon('#fpv-osd-right .osd-gog svg'); }, 800);
+            function txt(g, s, el, text, col, center) {
+                if (!vis(el)) return; const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+                g.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + (parseFloat(cs.fontSize) * s) + 'px ' + cs.fontFamily; g.fillStyle = col || cs.color; g.textBaseline = 'middle'; g.textAlign = center ? 'center' : 'left';
+                g.fillText(text !== undefined ? text : el.textContent.replace(/\u00a0/g, ' '), (center ? r.left + r.width / 2 : r.left) * s, (r.top + r.height / 2) * s);
+            }
+            function icon(g, s, sel, im) { const el = document.querySelector(sel); if (im && im.complete && vis(el)) { const r = el.getBoundingClientRect(); g.drawImage(im, r.left * s, r.top * s, r.width * s, r.height * s); } }
+            function osd(g, s, M) {
+                const W = g.canvas.width, H = g.canvas.height; g.save(); g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 3 * s; g.textAlign = 'left';
+                if (M.grid !== 'Off' && window.DJIGRID) { g.save(); g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 1.3 * s; g.beginPath(); DJIGRID(M.grid).forEach(l => { g.moveTo(l[0] * W, l[1] * H); g.lineTo(l[2] * W, l[3] * H); }); g.stroke(); g.restore(); }
+                const oa = $('oa-canvas'); if (oa && oa.style.display === 'block' && window._oaOn !== false) g.drawImage(oa, 0, 0, W, H);
+                if (M.center && vis($('osd-xh'))) { const x = W / 2, y = H / 2, a = 5 * s, b = 19 * s; g.strokeStyle = 'rgba(244,244,244,.92)'; g.lineWidth = 1.9 * s; g.beginPath(); g.moveTo(x - b, y); g.lineTo(x - a, y); g.moveTo(x + a, y); g.lineTo(x + b, y); g.moveTo(x, y - b); g.lineTo(x, y - a); g.moveTo(x, y + a); g.lineTo(x, y + b); g.stroke(); }
+                const md = $('osd-mode'); if (vis(md)) { const r = md.getBoundingClientRect(), w = md.offsetWidth * s, h = md.offsetHeight * s; g.save(); g.translate((r.left + r.width / 2) * s, (r.top + r.height / 2) * s); g.transform(1, 0, Math.tan(-8 * Math.PI / 180), 1, 0, 0); g.fillStyle = '#eee'; g.fillRect(-w / 2, -h / 2, w, h); g.fillStyle = 'rgba(25,25,28,.78)'; g.shadowBlur = 0; g.font = 'italic 900 ' + (h * 0.78) + 'px "Arial Black",Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText((window.setOsdMode && setOsdMode.c) || 'N', 0, h * 0.04); g.restore(); }
+                txt(g, s, $('osd-vs')); txt(g, s, $('osd-hs')); document.querySelectorAll('#fpv-osd-left .osd-lb').forEach(e => txt(g, s, e));
+                const bt = document.querySelector('#fpv-osd-right .osd-bat'); if (vis(bt)) { const r = bt.getBoundingClientRect(); g.fillStyle = 'rgba(120,120,120,.45)'; g.fillRect(r.left * s, r.top * s, r.width * s, r.height * s); g.strokeStyle = '#cfcfcf'; g.lineWidth = 2.4 * s; g.strokeRect(r.left * s, r.top * s, r.width * s, r.height * s); g.fillStyle = '#cfcfcf'; g.fillRect(r.right * s + 1 * s, (r.top + r.height * 0.3) * s, 3 * s, r.height * 0.4 * s); txt(g, s, $('osd-bat')); }
+                txt(g, s, $('osd-time'));
+                document.querySelectorAll('#fpv-osd-right .osd-bars > div').forEach(d => { txt(g, s, d, d.textContent.trim().slice(0, 2)); d.querySelectorAll('i').forEach(i => { const r = i.getBoundingClientRect(); g.globalAlpha = parseFloat(i.style.opacity) || 1; g.fillStyle = '#f2f2f2'; g.fillRect(r.left * s, r.top * s, Math.max(r.width, 2) * s, r.height * s); g.globalAlpha = 1; }); });
+                txt(g, s, $('osd-mbps')); txt(g, s, document.querySelector('#fpv-osd-right .osd-mb small')); icon(g, s, '#fpv-osd-right .osd-sat svg', icons.sat); txt(g, s, $('osd-sat')); icon(g, s, '#fpv-osd-right .osd-gog svg', icons.gog); txt(g, s, $('osd-gog'));
+                const dl = $('osd-dline'); if (vis(dl)) { const col = getComputedStyle(dl).color, ln = dl.querySelector('.ln'), r = ln.getBoundingClientRect(), cx = (r.left + r.width / 2) * s; txt(g, s, $('osd-dline-v'), undefined, col, true); g.fillStyle = col; g.fillRect(r.left * s, r.top * s, r.width * s, 2 * s); g.beginPath(); g.moveTo(cx - 6 * s, (r.top + 2) * s); g.lineTo(cx + 6 * s, (r.top + 2) * s); g.lineTo(cx, (r.top + 10) * s); g.fill(); }
+                const dc = $('osd-dico'); if (vis(dc)) { const col = getComputedStyle(dc).color, sv = dc.querySelector('svg').getBoundingClientRect(), k = sv.width * s / 24; g.fillStyle = col; g.beginPath(); g.moveTo(sv.left * s + 12 * k, sv.top * s + 1 * k); g.lineTo(sv.left * s + 18 * k, sv.top * s + 15 * k); g.lineTo(sv.left * s + 6 * k, sv.top * s + 15 * k); g.fill(); g.fillRect(sv.left * s + 3 * k, sv.top * s + 20 * k, 18 * k, 3.5 * k); txt(g, s, $('osd-dico-v'), undefined, col); }
+                const hi = $('osd-home'); if (vis(hi)) { txt(g, s, hi.children[0]); const ar = hi.children[1]; if (vis(ar)) { const r = ar.getBoundingClientRect(), m = /rotate\(([-\d.e]+)rad\)/.exec(ar.style.transform || ''), rot = m ? parseFloat(m[1]) : 0, w = ar.offsetWidth * s, h = ar.offsetHeight * s; g.save(); g.translate((r.left + r.width / 2) * s, (r.top + r.height / 2) * s); g.rotate(rot); g.fillStyle = '#f2f2f2'; g.beginPath(); g.moveTo(-w / 2, -h / 2); g.lineTo(-w / 2, h / 2); g.lineTo(w / 2, 0); g.fill(); g.restore(); } }
+                const hk = $('osd-hmark'); if (vis(hk)) { const b = hk.querySelector('b'), r = b.getBoundingClientRect(); g.strokeStyle = '#f4f4f4'; g.fillStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 2 * s; g.beginPath(); g.arc((r.left + r.width / 2) * s, (r.top + r.height / 2) * s, r.width / 2 * s, 0, 7); g.fill(); g.stroke(); txt(g, s, b, 'H', '#f4f4f4', true); txt(g, s, $('osd-hmd'), undefined, '#f4f4f4', true); }
+                const tt = $('osd-toast'); if (vis(tt)) { const r = tt.getBoundingClientRect(), cs = getComputedStyle(tt); g.shadowBlur = 0; g.fillStyle = 'rgba(34,34,36,.84)'; g.fillRect(r.left * s, r.top * s, r.width * s, r.height * s); g.fillStyle = '#f0892a'; g.fillRect((r.left + innerWidth * 0.0055) * s, (r.top + r.height * 0.22) * s, 3 * s, r.height * 0.56 * s); g.font = cs.fontWeight + ' ' + (parseFloat(cs.fontSize) * s) + 'px ' + cs.fontFamily; g.fillStyle = '#f4f4f4'; g.textBaseline = 'middle'; g.fillText(tt.textContent, (r.left + parseFloat(cs.paddingLeft)) * s, (r.top + r.height / 2) * s); }
+                const er = $('osd-err'); if (vis(er)) { const r = er.getBoundingClientRect(), cs = getComputedStyle(er); g.shadowBlur = 0; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(r.left * s, r.top * s, r.width * s, r.height * s); g.strokeStyle = '#ff3b30'; g.lineWidth = 2 * s; g.strokeRect(r.left * s, r.top * s, r.width * s, r.height * s); g.font = cs.fontWeight + ' ' + (parseFloat(cs.fontSize) * s) + 'px ' + cs.fontFamily; g.fillStyle = '#ff3b30'; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(er.textContent, (r.left + r.width / 2) * s, (r.top + r.height / 2) * s); }
+                const rc = $('gm-rec'); if (vis(rc)) { const d = rc.querySelector('i').getBoundingClientRect(); g.fillStyle = '#f01c1c'; g.beginPath(); g.arc((d.left + d.width / 2) * s, (d.top + d.height / 2) * s, d.width / 2 * s, 0, 7); g.fill(); txt(g, s, $('gm-rect')); }
+                g.restore();
+            }
+            function frame() {
+                const cvs = renderer.domElement, Wf = cvs.width, Hf = cvs.height, M = window.DJIM || {}; if (full.width !== Wf || full.height !== Hf) { full.width = Wf; full.height = Hf; }
+                const fxc = $('sig-fx'), pix = fxc && fxc.style.display === 'block';
+                fg.filter = ((SIG.frozen ? FROZEN + ' ' : '') + (SIG.user || '')).trim() || 'none'; fg.imageSmoothingEnabled = !(pix && fxc.style.imageRendering === 'pixelated'); fg.drawImage(pix ? fxc : cvs, 0, 0, Wf, Hf); fg.filter = 'none';
+                if (M.osdrec !== false) osd(fg, Wf / innerWidth, M);
+            }
+            function cropR() { const M = window.DJIM || {}, Wf = full.width, Hf = full.height, r = M.ar === '4:3' ? 4 / 3 : M.ar === '21:9' ? 21 / 9 : 0; let sx = 0, sy = 0, sw = Wf, sh = Hf; if (r) { if (Wf / Hf > r) { sw = Hf * r; sx = (Wf - sw) / 2; } else { sh = Wf / r; sy = (Hf - sh) / 2; } } return [sx, sy, sw, sh]; }
+            function keep(name, blob, kind, t) {
+                const c = { n: name, kind, t, b: blob, url: URL.createObjectURL(blob) }; C.clips.push(c); if (C.clips.length > 8) { const o = C.clips.shift(); URL.revokeObjectURL(o.url); }
+                dl(c); if (window._gmRefresh) _gmRefresh();
+            }
+            function dl(c) { const a = document.createElement('a'); a.href = c.url; a.download = c.n; document.body.appendChild(a); a.click(); a.remove(); }
+            C.download = i => { if (C.clips[i]) dl(C.clips[i]); };
+            C.photo = () => {
+                if (!gameStarted) return; frame(); const [sx, sy, sw, sh] = cropR(); pc.width = Math.round(sw); pc.height = Math.round(sh); pg.drawImage(full, sx, sy, sw, sh, 0, 0, pc.width, pc.height);
+                pc.toBlob(b => { if (b) { keep('DJI_' + String(++C.n).padStart(4, '0') + '.JPG', b, 'photo', 0); say('Photo saved', 2000); } }, 'image/jpeg', 0.93);
+                const f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:80;pointer-events:none;opacity:.8;transition:opacity .35s'; document.body.appendChild(f); requestAnimationFrame(() => { f.style.opacity = 0; }); setTimeout(() => f.remove(), 500);
+            };
+            C.toggleRec = () => {
+                if (C.rec) { C.rec = false; if (mr && mr.state !== 'inactive') mr.stop(); return; }
+                if (!gameStarted) return; const mime = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+                if (!mime || !out.captureStream) { say('Video recording is not supported in this browser.', 3000); return; }
+                frame(); const sz = cropR(), ow = Math.min(1920, Math.round(sz[2])) & ~1, oh = Math.round(ow * sz[3] / sz[2]) & ~1; out.width = ow; out.height = oh;
+                chunks = []; mr = new MediaRecorder(out.captureStream(30), { mimeType: mime, videoBitsPerSecond: 8e6 }); const dur = () => C.t;
+                mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+                mr.onstop = () => { const b = new Blob(chunks, { type: mime.split(';')[0] }); keep('DJI_' + String(++C.n).padStart(4, '0') + (mime.includes('mp4') ? '.MP4' : '.WEBM'), b, 'video', dur()); say('Video saved', 2500); };
+                C.rec = true; C.t = 0; recStart = performance.now(); mr.start(1000);
+                (function loop() { if (!C.rec) return; requestAnimationFrame(loop); frame(); const r = cropR(); og.drawImage(full, r[0], r[1], r[2], r[3], 0, 0, out.width, out.height); })();
+            };
+            // buttons, keys, recording indicator
+            const bar = $('top-action-bar'), gb = $('btn-gm'), mk = (id, html, title, fn) => { const b = document.createElement('button'); b.className = 'top-btn'; b.id = id; b.title = title; b.innerHTML = html; b.addEventListener('click', e => { e.stopPropagation(); fn(); }); if (bar) bar.insertBefore(b, gb); return b; };
+            const bp = mk('btn-photo', '&#128247;', 'Photo (P)', C.photo), br = mk('btn-rec', '&#9899;', 'Record (V)', C.toggleRec);
+            addEventListener('keydown', e => { if (!gameStarted || e.repeat) return; const k = e.key.toLowerCase(); if (k === 'p') C.photo(); else if (k === 'v') C.toggleRec(); });
+            let lt = performance.now();
+            (function tick(ts) {
+                requestAnimationFrame(tick); const dt = Math.min(0.1, (ts - lt) / 1000) || 0.016; lt = ts; const rc = $('gm-rec');
+                if (C.rec) { C.t += dt; $('gm-rect').textContent = String(Math.floor(C.t / 60)).padStart(2, '0') + ':' + String(Math.floor(C.t % 60)).padStart(2, '0'); }
+                if (rc) rc.style.display = C.rec ? 'flex' : 'none'; br.style.color = C.rec ? '#ff3030' : ''; br.style.animation = C.rec ? 'oerr 1s infinite' : '';
+            })(performance.now());
+            return C;
         })();
     </script>
 </body>
