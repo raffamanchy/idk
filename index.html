@@ -245,7 +245,7 @@
         .cal-pad i { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:0; border-radius:50%; background:rgba(255,255,255,.85); transform:translate(-50%,-50%); pointer-events:none; box-shadow:0 2px 8px rgba(0,0,0,.3); }
         #cal-pl { left:max(190px, 22vw); } #cal-pr { right:max(24px, env(safe-area-inset-right)); }
         body.cal-mobile #cal-exit { left:18px; }
-        #osd-xh { left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; display: none; filter: drop-shadow(0 0 2px rgba(0,0,0,0.65)); } #osd-xh svg { width: 100%; height: 100%; fill: none; stroke: #f4f4f4; stroke-width: 1.9; stroke-linecap: butt; opacity: 0.92; }
+        #osd-xh { left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; display: none; filter: drop-shadow(0 0 2px rgba(0,0,0,0.65)); } #osd-xh svg { width: 100%; height: 100%; fill: none; stroke: #e6e6e6; stroke-width: 1.5; stroke-linecap: butt; opacity: 0.88; }
         #osd-toast { right: max(6.7vw, env(safe-area-inset-right)); bottom: 15.4vh; padding: 1.5vh 1.6vw 1.5vh 1.9vw; background: rgba(34,34,36,0.84); color: #f4f4f4; font-family: Arial, sans-serif; font-style: normal; font-weight: 400; font-size: clamp(11px, 1.25vw, 20px); text-shadow: none; opacity: 0; transition: opacity 0.35s; display: none; }
         #osd-toast:before { content: ''; position: absolute; left: 0.55vw; top: 22%; bottom: 22%; width: 3px; background: #f0892a; }
         #osd-home { left: 0; top: 0; display: none; align-items: center; gap: 0.25em; font-size: calc(var(--osd-scale) * clamp(12px, 1.7vw, 28px)); line-height: 1; white-space: nowrap; transform: translate(-50%, -50%); }
@@ -871,6 +871,28 @@
 
         // ---------- map loading ----------
         function disposeGroup(g) { g.traverse(o => { if (o.geometry) o.geometry.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (m.map) m.map.dispose(); if (m.emissiveMap) m.emissiveMap.dispose(); m.dispose(); }); }); }
+        MAPS.push({ name: 'Soccer Park', icon: '⚽', desc: 'Open grass fields, goals, tall gum trees', tod: 'day', grad: ['#6fb0ee', '#b9b45c'], build() {
+            terrainFor({ type: 'hills', amp: 2, clear: 320, low: [0.58, 0.58, 0.27], high: [0.52, 0.53, 0.25], rock: [0.5, 0.44, 0.3], hh: 8 });
+            const inField = (x, z) => Math.abs(x) < 115 && z > -130 && z < 135;
+            const goal = (x, z, ry) => {
+                const g = new THREE.Group(), wm = MB({ color: 0xf2f2f2 }); g.position.set(x, 0, z); g.rotation.y = ry;
+                const bar = (w, h, d, px, py, pz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wm); m.position.set(px, py, pz); g.add(m); };
+                bar(0.14, 2.44, 0.14, -3.66, 1.22, 0); bar(0.14, 2.44, 0.14, 3.66, 1.22, 0); bar(7.46, 0.14, 0.14, 0, 2.44, 0);
+                bar(0.1, 0.1, 2.2, -3.66, 2.4, -1.1); bar(0.1, 0.1, 2.2, 3.66, 2.4, -1.1); bar(7.4, 0.1, 0.1, 0, 2.4, -2.2); bar(0.1, 1.2, 0.1, -3.66, 1.8, -2.2); bar(0.1, 1.2, 0.1, 3.66, 1.8, -2.2);
+                const net = new THREE.Mesh(new THREE.PlaneGeometry(7.3, 2.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, side: THREE.DoubleSide })); net.position.set(0, 1.25, -2.2); g.add(net);
+                scene.add(g); const c = Math.cos(ry), s = Math.sin(ry); [-1, 1].forEach(sd => solid(x + sd * 3.66 * c, z - sd * 3.66 * s, 0.35, 0.35, 0, 2.5));
+            };
+            goal(-24, -10, 0); goal(-24, 62, Math.PI); goal(50, 20, Math.PI / 2); goal(-70, 20, -Math.PI / 2);
+            for (const [cx, cz, w, d] of [[-24, 26, 70, 100], [55, 20, 36, 70]]) { const L = (bw, bd, px, pz) => box(bw, 0.04, bd, px, 0.06, pz, 0xf3f3e8, false); L(w, 0.3, cx, cz - d / 2); L(w, 0.3, cx, cz + d / 2); L(0.3, d, cx - w / 2, cz); L(0.3, d, cx + w / 2, cz); L(w, 0.3, cx, cz); }
+            for (let i = 0; i < 10; i++) {   // tall gum trees along the left edge
+                const x = -78 + ((i * 37) % 9) - 4, z = -85 + i * 21, h = 14 + (i * 7) % 6, tk = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.1, h, 7), MB({ color: 0xa79d8c })); tk.position.set(x, h / 2, z); scene.add(tk);
+                [[0, 0], [3.5, 1.5], [-3, -1.8]].forEach(o => { const cr = new THREE.Mesh(new THREE.SphereGeometry(5 + (i % 3), 9, 7), MB({ color: i % 2 ? 0x56803a : 0x4a7432 })); cr.position.set(x + o[0], h + 2 + o[1], z + o[1]); cr.scale.y = 0.75; scene.add(cr); });
+                solid(x, z, 3.4, 3.4, 0, h + 6);
+            }
+            [[70, -15], [-95, 70], [75, 80]].forEach(p => { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 24, 8), MB({ color: 0xc9ccd0 })); pole.position.set(p[0], 12, p[1]); scene.add(pole); box(4, 0.8, 0.5, p[0], 24.3, p[1], 0xe8e8e0, false); solid(p[0], p[1], 0.9, 0.9, 0, 25); });
+            [0x4a7a30, 0x5b8a3a].forEach(c => scatter(crown(c, 5.4), 260, { rMin: 70, rMax: 1000, hMin: -3, hMax: 40, slope: 3, scale: [0.9, 1.9], solid: [2, 16], avoid: inField }));
+            beacon(25, 75); setRoute(RT.map(p => [p[0] * 0.4, p[1] * 0.4 + 20]), () => 3); } });
+
         function loadMap(i) {
             i = Math.max(0, Math.min(MAPS.length - 1, i | 0)); mapTimers.forEach(clearInterval); mapTimers = [];
             if (worldGroup) { scene.remove(worldGroup); disposeGroup(worldGroup); }
@@ -1627,7 +1649,7 @@
         function launch(mode) {
             if (mode === null) { if (gameStarted) resetDrone(); return; }
             if (mode === 'race') startRace(); else if (mode === 'tutorial') startTutorial();
-            else { endRace(); tut.on = false; tutEl.style.display = 'none'; startGameSession(); closePanel(); if (mode === 'freestyle') activeMode = 3; }
+            else { endRace(); tut.on = false; tutEl.style.display = 'none'; startGameSession(); closePanel(); if (mode === 'freestyle') activeMode = 1; }
         }
         function renderMapSelect() {
             mapEl.innerHTML = '';
@@ -1941,6 +1963,7 @@
                 if (modeCfg.hasAutoLevel && tumbleRotationVelocity.lengthSq() < 0.4) drone.euler.setFromQuaternion(drone.rotation, 'YXZ'); 
             }
 
+            if (window.FLT) FLT.tick(dt, modeCfg);
             const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(drone.rotation);
             const accel = new THREE.Vector3().addVectors(localUp.multiplyScalar(currentThrottle * modeCfg.maxThrust * (DRONE.power / 100)), new THREE.Vector3(0, -GRAVITY, 0));
             drone.velocity.addScaledVector(drone.velocity, -modeCfg.drag * (DRONE.drag / 100));
@@ -2258,7 +2281,7 @@
         (() => {
             const host = document.getElementById('canvas-container'), $ = id => document.getElementById(id);
             const mk = (id, html) => { const d = document.createElement('div'); d.id = id; d.className = 'fosd'; d.innerHTML = html; host.appendChild(d); return d; };
-            const xh = mk('osd-xh', '<svg viewBox="0 0 40 40"><path d="M2 20h13M25 20h13M20 2v13M20 25v13"/></svg>'), home = mk('osd-home', '<span>H</span><i></i>'), toast = mk('osd-toast', 'Manual mode. Fly with caution'), hm = mk('osd-hmark', '<b>H</b><small id="osd-hmd"></small>'), hv = new THREE.Vector3(), cp = new THREE.Vector3();
+            const xh = mk('osd-xh', '<svg viewBox="0 0 30 30"><path d="M4 15h8M18 15h8M15 4v8M15 18v8"/></svg>'), home = mk('osd-home', '<span>H</span><i></i>'), toast = mk('osd-toast', 'Manual mode. Fly with caution'), hm = mk('osd-hmark', '<b>H</b><small id="osd-hmd"></small>'), hv = new THREE.Vector3(), cp = new THREE.Vector3();
             const f = new THREE.Vector3(); let until = 0, shown = false, hs = '', flight = 0, last = performance.now();
             const setToast = (t, ms) => { if (toast.textContent !== t) toast.textContent = t; until = performance.now() + ms; }; window._osdMsg = setToast;
             function frame(ts) {
@@ -2334,7 +2357,7 @@
 
         /* ===== DJI Avata 2 style digital video link: max 60 Mbps, low-bitrate blocks + shuttering, frozen B&W frame at 0 Mbps, auto RTH (no GPS), water = battery error ===== */
         window.SIG = (() => {
-            const S = { m: 58, v: 58, frozen: false, force: false, water: false, on: false, cap: 60, act: 'rth', fi: 0, lr: 0, user: '' }, host = document.getElementById('canvas-container'), cvs = renderer.domElement, fx = document.createElement('canvas'), g = fx.getContext('2d'), $ = id => document.getElementById(id), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), KS = [1, 2, 3, 4, 6, 8, 11, 14], FROZEN = 'grayscale(1) contrast(1.1) brightness(0.92)';
+            const S = { m: 58, v: 58, frozen: false, force: false, water: false, waterT: 0, on: false, cap: 60, act: 'rth', fi: 0, lr: 0, user: '' }, host = document.getElementById('canvas-container'), cvs = renderer.domElement, fx = document.createElement('canvas'), g = fx.getContext('2d'), $ = id => document.getElementById(id), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), KS = [1, 2, 3, 4, 6, 8, 11, 14], FROZEN = 'grayscale(1) contrast(1.1) brightness(0.92)';
             fx.id = 'sig-fx'; fx.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:11;display:none;'; host.appendChild(fx);
             const st = document.createElement('style'); st.textContent = '@keyframes oerr{50%{opacity:.35}} #osd-err{left:50%;top:17vh;transform:translateX(-50%);display:none;padding:1.2vh 1.8vw;background:rgba(0,0,0,.6);border:2px solid #ff3b30;color:#ff3b30;font:700 clamp(14px,2vw,30px) Arial,sans-serif;font-style:normal;text-shadow:none;animation:oerr 1s infinite;white-space:nowrap;z-index:16} body.home-on #osd-err,body.no-osd #osd-err{display:none!important}'; document.head.appendChild(st);
             const err = document.createElement('div'); err.id = 'osd-err'; err.className = 'fosd'; err.textContent = '\u26A0 Battery communication error'; host.appendChild(err);
@@ -2370,19 +2393,19 @@
                 if (!S.on) { if (flt) applyF(''); setK(1); S.frozen = false; err.style.display = 'none'; return; }
                 const p = drone.position, d = Math.hypot(p.x, p.z - 45), gh = groundH(p.x, p.z);
                 // water: crashing / landing into the lake or sea kills the battery link
-                if (!S.water && gh <= -0.39 && p.y <= 0.0) { S.water = true; if (isArmed) toggleMotors(); if (window.RTH) RTH.active = false; }
+                if (!S.water && gh <= -0.39 && p.y <= 0.0) { S.water = true; S.waterT = 0; if (isArmed) toggleMotors(); if (window.RTH) RTH.active = false; }
                 if (S.water && gh > -0.39) { S.water = false; nextT = 0; }
-                err.style.display = S.water ? 'block' : 'none';
+                err.style.display = 'none'; if (S.water && S.waterT >= 2.5) msg('Battery communication error', 1000);
                 if (ts > nextT) {
                     nextT = ts + 250 + Math.random() * 450; blocked = los(p.x, p.y, p.z);
                     let base = S.cap * Math.max(0, 1 - Math.pow(d / 1000, 1.3)); if (blocked) base *= 0.3; if (S.force || S.water) base = 0;
                     tgt = base > 0.5 ? clamp(base * (0.88 + Math.random() * 0.12), 1, S.cap) : 0;
                 }
-                if (S.water) { tgt = 0; S.v = 0; }
+                if (S.water) { S.waterT += dt; if (S.waterT < 2.5) { tgt = 3; S.v = Math.max(1, 3 - S.waterT * 0.8); } else { tgt = 0; S.v = 0; } }
                 S.v += (tgt - S.v) * Math.min(1, dt * (tgt === 0 ? 6 : 3)); S.m = tgt > 0 ? Math.max(1, Math.round(S.v)) : (S.v < 0.6 ? 0 : Math.max(1, Math.round(S.v)));
                 const hdN = S.m <= 0 ? 0 : clamp(Math.ceil(S.m / (S.cap / 3.4)), 1, 4);
                 if (hdN !== bars) { bars = hdN; const el = $('osd-hd'); el.innerHTML = ''; for (let i = 0; i < 4; i++) { const b = document.createElement('i'); b.style.height = (0.45 + i * 0.35) + 'em'; b.style.opacity = i < hdN ? 1 : 0.3; el.appendChild(b); } }
-                const mb = $('osd-mbps'); if (mb && mb.parentNode) mb.parentNode.style.color = S.m <= 0 ? '#ff2a2a' : ''; $('osd-rc').style.opacity = S.water ? 0.3 : 1;
+                const mb = $('osd-mbps'); if (mb && mb.parentNode) mb.parentNode.style.color = S.m <= 0 ? '#ff2a2a' : ''; $('osd-rc').style.opacity = S.water && S.waterT >= 2.5 ? 0.3 : 1;
                 if (S.m <= 0 && !S.frozen) { S.frozen = true; applyF(FROZEN); if (!S.water) msg('Video signal lost.', 3000); }
                 if (S.m > 0 && S.frozen) { S.frozen = false; applyF(''); recov = 1.2; msg('Video signal restored', 2200); }
                 if (S.frozen) {
@@ -2583,7 +2606,7 @@
                 const W = g.canvas.width, H = g.canvas.height; g.save(); g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 3 * s; g.textAlign = 'left';
                 if (M.grid !== 'Off' && window.DJIGRID) { g.save(); g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 1.3 * s; g.beginPath(); DJIGRID(M.grid).forEach(l => { g.moveTo(l[0] * W, l[1] * H); g.lineTo(l[2] * W, l[3] * H); }); g.stroke(); g.restore(); }
                 const oa = $('oa-canvas'); if (oa && oa.style.display === 'block' && window._oaOn !== false) g.drawImage(oa, 0, 0, W, H);
-                if (M.center && vis($('osd-xh'))) { const x = W / 2, y = H / 2, a = 5 * s, b = 19 * s; g.strokeStyle = 'rgba(244,244,244,.92)'; g.lineWidth = 1.9 * s; g.beginPath(); g.moveTo(x - b, y); g.lineTo(x - a, y); g.moveTo(x + a, y); g.lineTo(x + b, y); g.moveTo(x, y - b); g.lineTo(x, y - a); g.moveTo(x, y + a); g.lineTo(x, y + b); g.stroke(); }
+                if (M.center && vis($('osd-xh'))) { const x = W / 2, y = H / 2, a = 3.5 * s, b = 11 * s; g.strokeStyle = 'rgba(230,230,230,.88)'; g.lineWidth = 1.5 * s; g.beginPath(); g.moveTo(x - b, y); g.lineTo(x - a, y); g.moveTo(x + a, y); g.lineTo(x + b, y); g.moveTo(x, y - b); g.lineTo(x, y - a); g.moveTo(x, y + a); g.lineTo(x, y + b); g.stroke(); }
                 const md = $('osd-mode'); if (vis(md)) { const r = md.getBoundingClientRect(), w = md.offsetWidth * s, h = md.offsetHeight * s; g.save(); g.translate((r.left + r.width / 2) * s, (r.top + r.height / 2) * s); g.transform(1, 0, Math.tan(-8 * Math.PI / 180), 1, 0, 0); g.fillStyle = '#eee'; g.fillRect(-w / 2, -h / 2, w, h); g.fillStyle = 'rgba(25,25,28,.78)'; g.shadowBlur = 0; g.font = 'italic 900 ' + (h * 0.78) + 'px "Arial Black",Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText((window.setOsdMode && setOsdMode.c) || 'N', 0, h * 0.04); g.restore(); }
                 txt(g, s, $('osd-vs')); txt(g, s, $('osd-hs')); document.querySelectorAll('#fpv-osd-left .osd-lb').forEach(e => txt(g, s, e));
                 const bt = document.querySelector('#fpv-osd-right .osd-bat'); if (vis(bt)) { const r = bt.getBoundingClientRect(); g.fillStyle = 'rgba(120,120,120,.45)'; g.fillRect(r.left * s, r.top * s, r.width * s, r.height * s); g.strokeStyle = '#cfcfcf'; g.lineWidth = 2.4 * s; g.strokeRect(r.left * s, r.top * s, r.width * s, r.height * s); g.fillStyle = '#cfcfcf'; g.fillRect(r.right * s + 1 * s, (r.top + r.height * 0.3) * s, 3 * s, r.height * 0.4 * s); txt(g, s, $('osd-bat')); }
@@ -2639,6 +2662,67 @@
                 if (rc) rc.style.display = C.rec ? 'flex' : 'none'; br.style.color = C.rec ? '#ff3030' : ''; br.style.animation = C.rec ? 'oerr 1s infinite' : '';
             })(performance.now());
             return C;
+        })();
+
+        /* ===== Avata 2 flight logic: Normal / Sport are assisted (brake + altitude hold + speed limits), Manual needs a stick confirm ===== */
+        window.FLT = (() => {
+            const F = { on: false, vx: 0, vz: 0, ly: 0, ok: false, prev: 1, pend: false, hold: 0, shown: 0, lx: 0 }, $ = id => document.getElementById(id), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const VM = { 1: { v: 8, up: 5, dn: 4, a: 4, b: 7 }, 2: { v: 14.4, up: 8, dn: 6, a: 8, b: 9 } };   // Avata 2: Normal 8 m/s, Sport ~14 m/s; Manual 27 m/s unassisted
+            const st = document.createElement('style');
+            st.textContent = `#mm-dlg{position:fixed;left:33.5vw;bottom:19vh;width:34.5vw;height:15vh;background:rgba(30,30,32,.94);display:none;align-items:center;justify-content:space-between;padding:0 1.4vw;z-index:17;font-family:Arial,sans-serif;color:#f4f4f4}
+            #mm-dlg .mm-box{position:relative;width:6.2vw;min-width:56px;height:11vh;background:#1d1d1f;border:1px solid #3a3a3d;flex:none} #mm-dlg .mm-box:before,#mm-dlg .mm-box:after{content:'';position:absolute;background:#58585c} #mm-dlg .mm-box:before{left:50%;top:0;bottom:0;width:1px} #mm-dlg .mm-box:after{top:50%;left:0;right:0;height:1px} #mm-dlg .mm-box.hit:before,#mm-dlg .mm-box.hit:after{background:#1ec98a}
+            #mm-dlg .mm-dot{position:absolute;width:1.5vh;height:1.5vh;min-width:12px;min-height:12px;border-radius:50%;background:#1ec98a;transform:translate(-50%,-50%);z-index:1}
+            #mm-dlg .mm-txt{text-align:center;padding:0 .8vw} #mm-dlg .mm-txt b{display:block;font-size:clamp(12px,1.25vw,20px);font-weight:600;margin-bottom:1vh} #mm-dlg .mm-txt span{font-size:clamp(10px,1.05vw,17px);color:#bdbdc0;line-height:1.4;display:block}
+            #mm-dlg .mm-x{position:absolute;right:.5vw;top:.3vh;font-size:clamp(14px,1.4vw,22px);color:#999;cursor:pointer;padding:0 .3vw}
+            #osd-modecard{position:fixed;right:max(6.7vw,env(safe-area-inset-right));bottom:21.7vh;width:25vw;height:9.6vh;background:rgba(28,28,30,.92);display:none;align-items:center;gap:1.8vw;padding:0 1.8vw;z-index:15;font-family:Arial,sans-serif;color:#f4f4f4;transition:opacity .4s} #osd-modecard b{font:italic 900 clamp(22px,2.7vw,44px) "Arial Black",Arial,sans-serif} #osd-modecard span{font-size:clamp(12px,1.45vw,23px)}
+            body.home-on #mm-dlg,body.home-on #osd-modecard,body.no-osd #osd-modecard{display:none!important}`;
+            document.head.appendChild(st);
+            const dlg = document.createElement('div'); dlg.id = 'mm-dlg'; dlg.innerHTML = '<div class="mm-box"><i class="mm-dot"></i></div><div class="mm-txt"><b>Switch to Manual Mode</b><span>Use the control stick to move the cursor to the green line</span></div><div class="mm-box"><i class="mm-dot"></i></div><div class="mm-x">\u2715</div>'; document.body.appendChild(dlg);
+            const card = document.createElement('div'); card.id = 'osd-modecard'; card.innerHTML = '<b></b><span></span>'; document.body.appendChild(card);
+            const boxes = dlg.querySelectorAll('.mm-box'), dots = dlg.querySelectorAll('.mm-dot'), u = new THREE.Vector3();
+            F.open = () => { F.pend = true; F.hold = 0; dlg.style.display = 'flex'; };
+            F.close = () => { F.pend = false; dlg.style.display = 'none'; };
+            dlg.querySelector('.mm-x').onclick = F.close;
+            F.tick = (dt, cfg) => {
+                if (activeMode === 3 && !F.ok) { activeMode = F.prev; F.open(); return; }
+                if (activeMode !== 3) { F.ok = false; F.prev = activeMode; }
+                const m = VM[activeMode];
+                if (!m || !isArmed || (window.TURTLE && TURTLE.active) || (window.RTH && RTH.active) || tumbleRotationVelocity.lengthSq() > 0.001) { F.on = false; return; }
+                const v = drone.velocity; if (!F.on) { F.on = true; F.vx = v.x; F.vz = v.z; }
+                u.set(0, 1, 0).applyQuaternion(drone.rotation); const sh = Math.hypot(u.x, u.z), s = clamp(sh / Math.sin(cfg.maxAngle), 0, 1);
+                const tx = sh > 1e-4 ? u.x / sh * s * m.v : 0, tz = sh > 1e-4 ? u.z / sh * s * m.v : 0, ex = tx - F.vx, ez = tz - F.vz, len = Math.hypot(ex, ez);
+                if (len > 1e-5) { const k = Math.min(1, (s < 0.05 ? m.b : m.a) * dt / len); F.vx += ex * k; F.vz += ez * k; }   // stick released = brake to a stop
+                v.x = F.vx; v.z = F.vz;
+                const c = isMobile ? (Math.abs(stickyThrottleValue - 0.5) < 0.06 ? 0 : (stickyThrottleValue - 0.5) * 2) : (keys.w ? 1 : 0) - (keys.s ? 1 : 0);   // throttle stick = climb rate, centre holds altitude
+                F.ly += (c - F.ly) * Math.min(1, dt * 8); v.y += ((F.ly > 0 ? F.ly * m.up : F.ly * m.dn) - v.y) * Math.min(1, dt * 5);
+                currentThrottle = clamp(GRAVITY / ((cfg.maxThrust * DRONE.power / 100) * Math.max(0.5, Math.cos(drone.euler.x) * Math.cos(drone.euler.z))), 0, 1); stickyThrottleValue = currentThrottle;
+            };
+            const NAMES = { 1: ['N', 'Normal Mode'], 2: ['S', 'Sport Mode'], 3: ['M', 'Manual Mode'] };
+            addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (F.pend && (k === '1' || k === '2' || k === 'escape')) F.close(); });
+            let last = performance.now(), shownMode = activeMode, cardT = 0, lx = 0, ly = 0;
+            (function loop(ts) {
+                requestAnimationFrame(loop); const dt = Math.min(0.1, (ts - last) / 1000) || 0.016; last = ts;
+                const on = gameStarted && inst.style.display !== 'flex' && !document.body.classList.contains('home-on');
+                if (!on) { dlg.style.display = 'none'; F.pend = false; card.style.display = 'none'; shownMode = activeMode; return; }
+                if (activeMode !== shownMode) { shownMode = activeMode; const n = NAMES[activeMode]; card.firstChild.textContent = n[0]; card.lastChild.textContent = n[1]; card.style.display = 'flex'; card.style.opacity = 1; cardT = 4.5; }
+                if (cardT > 0) { cardT -= dt; if (cardT < 0.4) card.style.opacity = 0; if (cardT <= 0) card.style.display = 'none'; }
+                if (F.pend) {
+                    // stick positions (-1..1, y up): left = yaw / climb, right = roll / pitch
+                    const kx = (keys.d ? 1 : 0) - (keys.a ? 1 : 0), kc = (keys.w ? 1 : 0) - (keys.s ? 1 : 0); lx += ((isMobile ? touchLeftValX : kx) - lx) * Math.min(1, dt * 10); ly += ((isMobile ? -touchLeftValY : kc) - ly) * Math.min(1, dt * 10);
+                    const cfg = MODES[F.prev] || MODES[1], yw = drone.euler.y, sm = Math.sin(cfg.maxAngle); u.set(0, 1, 0).applyQuaternion(drone.rotation);
+                    const rx = clamp((u.x * Math.cos(yw) - u.z * Math.sin(yw)) / sm, -1, 1), ry = clamp((u.x * -Math.sin(yw) + u.z * -Math.cos(yw)) / sm, -1, 1), P = [[lx, ly], [rx, ry]];
+                    let hit = true; P.forEach((p, i) => { dots[i].style.left = (50 + clamp(p[0], -1, 1) * 46) + '%'; dots[i].style.top = (50 - clamp(p[1], -1, 1) * 46) + '%'; const h = Math.hypot(p[0], p[1]) < 0.16; boxes[i].classList.toggle('hit', h); if (!h) hit = false; });
+                    F.hold = hit ? F.hold + dt : 0;
+                    if (F.hold >= 1.0) { F.ok = true; activeMode = 3; F.close(); if (isArmed) { stickyThrottleValue = clamp(GRAVITY / (MODES[3].maxThrust * DRONE.power / 100), 0, 1); currentThrottle = stickyThrottleValue; } }
+                }
+                if (isMobile) { const mb = $('btn-motor-toggle'); if (mb) { mb.textContent = isArmed ? 'DISARM' : 'ARM'; mb.style.background = isArmed ? 'rgba(190,40,40,.9)' : ''; } }
+            })(performance.now());
+            if (isMobile) {   // arm + fullscreen buttons live in the top bar (like the menu), not inside the stick container
+                const bar = $('top-action-bar'), mb = $('btn-motor-toggle'), fb = $('btn-fullscreen-toggle');
+                if (bar && mb) { mb.className = 'top-btn'; mb.style.display = 'flex'; mb.textContent = 'ARM'; bar.insertBefore(mb, bar.firstChild); }
+                if (bar && fb) { fb.className = 'top-btn'; fb.style.display = 'flex'; fb.innerHTML = '&#9974;'; bar.insertBefore(fb, mb ? mb.nextSibling : bar.firstChild); }
+            }
+            return F;
         })();
     </script>
 </body>
